@@ -26,7 +26,7 @@ The game receives fixed target keys: **arrows, Z, X, C**. You choose which physi
 * **Auto Update Check**: Checks GitHub on startup. Three modes: `imp` (mandatory), `notimp` (optional), `ignore`.
 * **Bilingual**: English and Russian.
 * **Configurable Logs**: Enable/disable logs, set log level (debug/info/warn/error).
-* **Auto Migration**: Settings from v1.0.0-v1.0.4 are automatically converted.
+* **Auto Migration**: I think settings from v1.0.0-v1.0.4 are automatically converted.
 * **Profile Fallback**: Corrupted profiles are automatically removed.
 
 ### Default Bindings
@@ -88,7 +88,7 @@ The game receives fixed target keys: **arrows, Z, X, C**. You choose which physi
 * **Авто-проверка обновлений**: Проверяет GitHub при запуске. Три режима: `imp` (обязательно), `notimp` (опционально), `ignore`.
 * **Двуязычный интерфейс**: Английский и русский.
 * **Настраиваемые логи**: Включение/выключение, уровень (debug/info/warn/error).
-* **Авто-миграция**: Настройки с v1.0.0-v1.0.4 конвертируются.
+* **Авто-миграция**: Я думаю настройки с v1.0.0-v1.0.4 конвертируются.
 * **Fallback профилей**: Повреждённые профили удаляются автоматически.
 
 ### Файлы
