@@ -59,11 +59,16 @@ except ImportError:
 # Constants
 # ================================================================
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+# Fix paths for both EXE and script modes
+if getattr(sys, 'frozen', False):
+    SCRIPT_DIR = os.path.dirname(sys.executable)
+else:
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 PROFILES_FILE = os.path.join(SCRIPT_DIR, "profiles.json")
 PREFERENCES_FILE = os.path.join(SCRIPT_DIR, "preferences.json")
 
-CURRENT_VERSION = "1.0.6"
+CURRENT_VERSION = "1.0.7"
 UPDATE_URL = "https://raw.githubusercontent.com/FoxVukOff/deltarune-foxvuk-keybinds/refs/heads/main/version.txt"
 REPO_URL = "https://github.com/FoxVukOff/deltarune-foxvuk-keybinds"
 
@@ -165,16 +170,34 @@ def migrate_preferences(data: dict) -> dict:
 
 def migrate_to_profiles(config: dict) -> dict:
     """Convert old single-config to multi-profile format."""
+    profiles_file_exists = os.path.exists(PROFILES_FILE)
     profiles = load_profiles()
 
-    # If profiles already exist and have data, don't overwrite
-    if profiles.get("profiles"):
+    # If profiles file already exists with real data, don't overwrite
+    if profiles_file_exists and len(profiles.get("profiles", {})) > 1:
         return profiles
 
-    # Create Default profile from old config
-    targets = config.get("targets", dict(DEFAULT_PROFILE_TARGETS))
+    # Create Default profile from old config (or use defaults)
+    targets = config.get("targets", None)
+    if targets and isinstance(targets, dict) and "w" in targets:
+        # Old format had source->target, need to invert
+        new_targets = {}
+        for src, tgt in targets.items():
+            if tgt in TARGET_ORDER:
+                new_targets[tgt] = src
+        if new_targets:
+            targets = new_targets
+
+    if not targets or not isinstance(targets, dict):
+        targets = dict(DEFAULT_PROFILE_TARGETS)
+
+    # Ensure all targets exist
+    for t in TARGET_ORDER:
+        if t not in targets:
+            targets[t] = DEFAULT_PROFILE_TARGETS.get(t, "unknown")
+
     profiles["profiles"]["Default"] = {
-        "targets": dict(targets),
+        "targets": targets,
         "created": datetime.now().isoformat(),
         "modified": datetime.now().isoformat(),
     }
@@ -1035,8 +1058,12 @@ class MainWindow(QMainWindow):
     def _on_profile_changed(self, name):
         if name and name in self.profiles["profiles"]:
             self.profiles["active"] = name
+            self.config["active_profile"] = name
             self._load_profile()
             self._reinstall_hooks()
+            # Save active profile immediately
+            save_preferences(self.config)
+            save_profiles(self.profiles)
             log(f"Switched to profile: {name}")
 
     def _load_profile(self):
