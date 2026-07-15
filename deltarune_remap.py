@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 ================================================================
- Deltarune Key Remapper v1.0.5
+ Deltarune Key Remapper v1.0.8
 ================================================================
 
-GUI-only key remapper with multi-profile support.
+GUI-only key remapper with multi-profile support and hotkeys.
 
 Target keys (what the game receives):
     Up / Left / Down / Right  —  movement
@@ -17,6 +17,7 @@ Source keys (what you press) — fully customizable per profile.
 Hotkeys (global):
     Ctrl+Alt+V          — toggle remap on/off
     Ctrl+Alt+Backspace  — quit the program
+    Ctrl+Alt+P+0-9      — switch profile (0=Default, 1-9=custom)
 
 ================================================================
 """
@@ -68,7 +69,7 @@ else:
 PROFILES_FILE = os.path.join(SCRIPT_DIR, "profiles.json")
 PREFERENCES_FILE = os.path.join(SCRIPT_DIR, "preferences.json")
 
-CURRENT_VERSION = "1.0.7"
+CURRENT_VERSION = "1.0.8"
 UPDATE_URL = "https://raw.githubusercontent.com/FoxVukOff/deltarune-foxvuk-keybinds/refs/heads/main/version.txt"
 REPO_URL = "https://github.com/FoxVukOff/deltarune-foxvuk-keybinds"
 
@@ -91,10 +92,22 @@ DEFAULT_CONFIG = {
         "toggle": "ctrl+alt+v",
         "quit": "ctrl+alt+backspace",
     },
+    "profile_hotkeys": {
+        "0": "ctrl+alt+p+0",
+        "1": "ctrl+alt+p+1",
+        "2": "ctrl+alt+p+2",
+        "3": "ctrl+alt+p+3",
+        "4": "ctrl+alt+p+4",
+        "5": "ctrl+alt+p+5",
+        "6": "ctrl+alt+p+6",
+        "7": "ctrl+alt+p+7",
+        "8": "ctrl+alt+p+8",
+        "9": "ctrl+alt+p+9",
+    },
     "window_check": True,
     "logs_enabled": True,
     "log_level": "info",
-    "version": "1.0.5",
+    "version": "1.0.8",
 }
 
 VALID_KEYS = {
@@ -108,6 +121,73 @@ VALID_KEYS = {
     "capslock","numlock","scrolllock",
     "`","-","=","[","]","\\",";","'",",",".","/",
 }
+
+MAX_QUICK_PROFILES = 9  # digits 1-9, Default on 0
+
+
+# ================================================================
+# OSD Window (borderless overlay, auto-hides)
+# ================================================================
+
+class OSDWindow(QWidget):
+    """Borderless overlay window that shows a message and auto-hides."""
+    _instance = None
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint |
+            Qt.WindowType.WindowStaysOnTopHint |
+            Qt.WindowType.Tool
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+
+        self.label = QLabel(self)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label.setStyleSheet("""
+            QLabel {
+                background: rgba(0, 0, 0, 180);
+                color: white;
+                font-size: 24px;
+                font-weight: bold;
+                padding: 12px 24px;
+                border-radius: 8px;
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.label)
+        self.setLayout(layout)
+
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.hide)
+        self.timer.setSingleShot(True)
+
+        self.resize(300, 60)
+        self._center()
+
+    def _center(self):
+        screen = QApplication.primaryScreen().geometry()
+        x = (screen.width() - self.width()) // 2
+        y = screen.height() - 120
+        self.move(x, y)
+
+    def show_message(self, text: str, duration_ms: int = 2000):
+        self.label.setText(text)
+        self.show()
+        self.raise_()
+        self.timer.start(duration_ms)
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = OSDWindow()
+        return cls._instance
+
+    @classmethod
+    def show(cls, text: str, duration_ms: int = 2000):
+        cls.get_instance().show_message(text, duration_ms)
 
 
 # ================================================================
@@ -271,21 +351,47 @@ def save_profiles(profiles: dict):
     log(f"Profiles saved ({len(profiles['profiles'])} profiles)")
 
 
-def create_profile(profiles: dict, name: str) -> bool:
-    """Create a new profile with Default settings. Returns True if created."""
+def create_profile(profiles: dict, name: str) -> tuple[bool, str]:
+    """Create a new profile. Returns (created, message)."""
     if name in profiles["profiles"]:
-        return False
+        return False, "exists"
     if not name.strip():
-        return False
+        return False, "empty"
+
+    # Count custom profiles (excluding Default)
+    custom_count = len([p for p in profiles["profiles"] if p != "Default"])
+
+    # Assign hotkey digit if available
+    hotkey_digit = None
+    if custom_count < MAX_QUICK_PROFILES:
+        # Find next available digit
+        used_digits = set()
+        for pname, pdata in profiles["profiles"].items():
+            if pname != "Default" and "hotkey_digit" in pdata:
+                used_digits.add(pdata["hotkey_digit"])
+        for d in range(1, 10):
+            if str(d) not in used_digits:
+                hotkey_digit = str(d)
+                break
 
     profiles["profiles"][name] = {
         "targets": dict(DEFAULT_PROFILE_TARGETS),
         "created": datetime.now().isoformat(),
         "modified": datetime.now().isoformat(),
     }
+    if hotkey_digit:
+        profiles["profiles"][name]["hotkey_digit"] = hotkey_digit
+
     save_profiles(profiles)
-    log(f"Profile created: {name}")
-    return True
+    log(f"Profile created: {name}" + (f" (hotkey: Ctrl+Alt+P+{hotkey_digit})" if hotkey_digit else " (no quick hotkey)"))
+
+    msg = ""
+    if custom_count >= MAX_QUICK_PROFILES:
+        msg = f"Quick profiles exhausted ({MAX_QUICK_PROFILES} max). This profile has no hotkey."
+    elif hotkey_digit:
+        msg = f"Profile created with hotkey: Ctrl+Alt+P+{hotkey_digit}"
+
+    return True, msg
 
 
 def delete_profile(profiles: dict, name: str) -> bool:
@@ -572,12 +678,18 @@ class RemapState:
 
     def toggle(self):
         self.enabled = not self.enabled
-        log(f"Remap {'ON' if self.enabled else 'OFF'}")
+        state_text = "ON" if self.enabled else "OFF"
+        log(f"Remap {state_text}")
+        OSDWindow.show(f"Remap: {state_text}")
         if not self.enabled:
             self.release_all()
 
     def request_quit(self):
-        log("Quit requested")
+        log("Kill switch pressed")
+        OSDWindow.show("Kill switch pressed")
+        # Small delay so OSD is visible before quit
+        QApplication.processEvents()
+        time.sleep(0.5)
         self.running = False
         self.release_all()
 
@@ -1092,10 +1204,47 @@ class MainWindow(QMainWindow):
     def _install_hooks(self):
         targets = self.profiles["profiles"][self.profiles["active"]]["targets"]
         install_hooks(self.state, targets)
+        self._install_profile_hotkeys()
 
     def _reinstall_hooks(self):
         targets = self.profiles["profiles"][self.profiles["active"]]["targets"]
         reinstall_hooks(self.state, targets)
+        self._install_profile_hotkeys()
+
+    def _install_profile_hotkeys(self):
+        """Register Ctrl+Alt+P+0-9 hotkeys for profile switching."""
+        profile_hotkeys = self.config.get("profile_hotkeys", {})
+        for digit, hotkey in profile_hotkeys.items():
+            try:
+                def make_handler(d=digit):
+                    def handler():
+                        self._switch_profile_by_hotkey(d)
+                    return handler
+                keyboard.add_hotkey(hotkey, make_handler(digit), suppress=True)
+            except Exception as e:
+                log(f"Failed to register hotkey {hotkey}: {e}", "warn")
+
+    def _switch_profile_by_hotkey(self, digit: str):
+        """Switch profile by hotkey digit. Shows OSD."""
+        # Find profile with this hotkey digit
+        target_name = None
+        if digit == "0":
+            target_name = "Default"
+        else:
+            for name, pdata in self.profiles["profiles"].items():
+                if pdata.get("hotkey_digit") == digit:
+                    target_name = name
+                    break
+
+        if target_name and target_name in self.profiles["profiles"]:
+            self.profiles["active"] = target_name
+            self.config["active_profile"] = target_name
+            self._load_profile()
+            self._reinstall_hooks()
+            save_preferences(self.config)
+            save_profiles(self.profiles)
+            OSDWindow.show(f"Profile: {target_name}")
+            log(f"Switched to profile: {target_name} (hotkey Ctrl+Alt+P+{digit})")
 
     def _start_rebind(self, target: str, lbl: QLabel):
         if self.rebinding:
@@ -1135,11 +1284,15 @@ class MainWindow(QMainWindow):
         from PyQt6.QtWidgets import QInputDialog
         name, ok = QInputDialog.getText(self, self.t["create_title"], self.t["create_prompt"])
         if ok and name:
-            if create_profile(self.profiles, name):
+            created, msg = create_profile(self.profiles, name)
+            if created:
                 self._refresh_profile_list()
                 self.profile_combo.setCurrentText(name)
-                QMessageBox.information(self, self.t["create_title"], self.t["profile_created"].format(name=name))
-            else:
+                full_msg = self.t["profile_created"].format(name=name)
+                if msg:
+                    full_msg += f"\n\n{msg}"
+                QMessageBox.information(self, self.t["create_title"], full_msg)
+            elif msg == "exists":
                 QMessageBox.warning(self, self.t["create_title"], self.t["profile_exists"].format(name=name))
 
     def _delete_profile(self):
