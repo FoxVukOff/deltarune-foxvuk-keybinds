@@ -1,0 +1,2 @@
+- name: Purge cache
+  uses: MyAlbum/purge-cache@v2
