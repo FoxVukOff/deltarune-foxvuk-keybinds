@@ -63,7 +63,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROFILES_FILE = os.path.join(SCRIPT_DIR, "profiles.json")
 PREFERENCES_FILE = os.path.join(SCRIPT_DIR, "preferences.json")
 
-CURRENT_VERSION = "1.0.5"
+CURRENT_VERSION = "1.0.6"
 UPDATE_URL = "https://raw.githubusercontent.com/FoxVukOff/deltarune-foxvuk-keybinds/refs/heads/main/version.txt"
 REPO_URL = "https://github.com/FoxVukOff/deltarune-foxvuk-keybinds"
 
@@ -442,8 +442,16 @@ def parse_version(v: str) -> tuple[int, int, int]:
         return (0, 0, 0)
 
 
-def check_for_updates() -> tuple[bool, str]:
-    """Check for updates. Returns (can_continue, message)."""
+def check_for_updates() -> tuple[str, str]:
+    """Check version status from GitHub.
+
+    Returns (status, message) where status is:
+        "ok"           — version is supported, continue normally
+        "notsup"       — version not supported, block until updated
+        "alnotsup"     — version will stop being supported soon, show warning
+        "notreleased"  — new version coming, show info banner
+        "unknown"      — version not in list at all, treat as ok
+    """
     try:
         import urllib.request
         bust_url = f"{UPDATE_URL}?_t={int(time.time() * 1000)}"
@@ -451,30 +459,51 @@ def check_for_updates() -> tuple[bool, str]:
         with urllib.request.urlopen(req, timeout=5) as resp:
             raw = resp.read().decode("utf-8").strip()
 
-        if ":" not in raw:
-            return True, ""
+        # Parse multi-line format: v1.0.0:status\nv1.0.1:status\n...
+        version_map = {}
+        for line in raw.splitlines():
+            line = line.strip()
+            if ":" in line:
+                ver_str, status = line.split(":", 1)
+                ver_str = ver_str.strip()
+                status = status.strip().lower()
+                version_map[ver_str] = status
 
-        ver_str, importance = raw.split(":", 1)
-        ver_str = ver_str.strip()
-        importance = importance.strip().lower()
+        current_ver_str = f"v{CURRENT_VERSION}"
+        status = version_map.get(current_ver_str)
 
-        remote_ver = parse_version(ver_str)
-        local_ver = parse_version(CURRENT_VERSION)
+        if status is None:
+            # Version not in list at all
+            return "unknown", ""
 
-        if remote_ver <= local_ver:
-            return True, ""
+        if status == "sup":
+            return "ok", ""
 
-        ver_display = ver_str if ver_str.startswith("v") else f"v{ver_str}"
+        elif status == "notsup":
+            return "notsup", (
+                f"Version v{CURRENT_VERSION} is no longer supported.\n"
+                f"Please update to the latest version.\n"
+                f"Download: {REPO_URL}"
+            )
 
-        if importance == "ignore":
-            return True, f"Note: {ver_display} exists (current: v{CURRENT_VERSION}). Ignored."
-        elif importance == "imp":
-            return False, f"IMPORTANT UPDATE: {ver_display}\nThis update is required.\nDownload: {REPO_URL}"
+        elif status == "alnotsup":
+            return "alnotsup", (
+                f"Version v{CURRENT_VERSION} will stop being supported soon.\n"
+                f"Please update when you can.\n"
+                f"Download: {REPO_URL}"
+            )
+
+        elif status == "notreleased":
+            return "notreleased", (
+                f"A new version of Deltarune Key Remapper is coming soon.\n"
+                f"Current: v{CURRENT_VERSION}"
+            )
+
         else:
-            return True, f"Update available: {ver_display}\nCurrent: v{CURRENT_VERSION}\nDownload: {REPO_URL}"
+            return "ok", ""
 
     except Exception:
-        return True, ""
+        return "ok", ""
 
 
 # ================================================================
@@ -718,7 +747,7 @@ LANG_GUI = {
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, config: dict, profiles: dict, lang: str):
+    def __init__(self, config: dict, profiles: dict, lang: str, update_status: str = "ok", update_msg: str = ""):
         super().__init__()
         self.config = config
         self.profiles = profiles
@@ -726,11 +755,14 @@ class MainWindow(QMainWindow):
         self.t = LANG_GUI[lang]
         self.state = RemapState(config["hotkeys"])
         self.rebinding = False
+        self.update_status = update_status
+        self.update_msg = update_msg
 
         self.setWindowTitle(self.t["title"])
-        self.setFixedSize(480, 560)
+        self.setFixedSize(480, 620 if update_status in ("alnotsup", "notreleased", "notsup") else 560)
         self._apply_style()
         self._build_ui()
+        self._show_update_banner()
         self._load_profile()
         self._install_hooks()
         self._start_timer()
@@ -927,6 +959,68 @@ class MainWindow(QMainWindow):
         btn_row.addWidget(self.quit_btn)
 
         layout.addLayout(btn_row)
+
+    def _show_update_banner(self):
+        """Show update banner based on status."""
+        if self.update_status == "ok" or not self.update_msg:
+            return
+
+        banner = QFrame()
+        banner.setFixedHeight(60)
+
+        if self.update_status == "notsup":
+            # Red banner, non-dismissable (blocks use)
+            banner.setStyleSheet("""
+                QFrame { background: #552222; border: 1px solid #aa4444; border-radius: 6px; }
+                QLabel { color: #ff8888; }
+            """)
+            layout = QVBoxLayout(banner)
+            layout.setContentsMargins(10, 6, 10, 6)
+            lbl = QLabel(self.update_msg.replace("\n", " | "))
+            lbl.setStyleSheet("font-size: 11px; color: #ff8888; font-weight: bold;")
+            lbl.setWordWrap(True)
+            layout.addWidget(lbl)
+
+        elif self.update_status == "alnotsup":
+            # Orange banner, non-dismissable (warning)
+            banner.setStyleSheet("""
+                QFrame { background: #554422; border: 1px solid #aa8844; border-radius: 6px; }
+                QLabel { color: #ffcc66; }
+            """)
+            layout = QVBoxLayout(banner)
+            layout.setContentsMargins(10, 6, 10, 6)
+            lbl = QLabel(self.update_msg.replace("\n", " | "))
+            lbl.setStyleSheet("font-size: 11px; color: #ffcc66; font-weight: bold;")
+            lbl.setWordWrap(True)
+            layout.addWidget(lbl)
+
+        elif self.update_status == "notreleased":
+            # Blue banner, dismissable
+            banner.setStyleSheet("""
+                QFrame { background: #223355; border: 1px solid #4466aa; border-radius: 6px; }
+                QLabel { color: #88bbff; }
+            """)
+            h_layout = QHBoxLayout(banner)
+            h_layout.setContentsMargins(10, 6, 10, 6)
+
+            lbl = QLabel(self.update_msg.replace("\n", " | "))
+            lbl.setStyleSheet("font-size: 11px; color: #88bbff;")
+            lbl.setWordWrap(True)
+            h_layout.addWidget(lbl, 1)
+
+            close_btn = QPushButton("x")
+            close_btn.setFixedSize(20, 20)
+            close_btn.setStyleSheet("""
+                QPushButton { background: transparent; color: #88bbff; border: none; font-size: 14px; font-weight: bold; }
+                QPushButton:hover { color: #ffffff; }
+            """)
+            close_btn.clicked.connect(banner.deleteLater)
+            h_layout.addWidget(close_btn)
+
+        # Insert banner at the top of the main layout
+        main_widget = self.centralWidget()
+        main_layout = main_widget.layout()
+        main_layout.insertWidget(0, banner)
 
     def _refresh_profile_list(self):
         self.profile_combo.blockSignals(True)
@@ -1126,9 +1220,9 @@ def main():
     log(f"Deltarune Key Remapper v{CURRENT_VERSION}")
 
     # Check for updates
-    can_continue, update_msg = check_for_updates()
+    update_status, update_msg = check_for_updates()
     if update_msg:
-        log(update_msg, "info" if can_continue else "warn")
+        log(update_msg, "warn" if update_status in ("notsup", "alnotsup") else "info")
 
     # Migrate to profiles format
     profiles = migrate_to_profiles(config)
@@ -1148,12 +1242,8 @@ def main():
     p.setColor(QPalette.ColorRole.Highlight, QColor(34, 85, 170))
     app.setPalette(p)
 
-    window = MainWindow(config, profiles, lang)
+    window = MainWindow(config, profiles, lang, update_status, update_msg)
     window.show()
-
-    # If mandatory update, show dialog
-    if not can_continue and update_msg:
-        QMessageBox.critical(window, LANG_GUI[lang]["update_title"], update_msg)
 
     app.exec()
 
