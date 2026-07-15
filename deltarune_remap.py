@@ -52,6 +52,91 @@ except ImportError:
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PREFERENCES_FILE = os.path.join(SCRIPT_DIR, "preferences.json")
 
+CURRENT_VERSION = "1.0.3"
+UPDATE_URL = "https://raw.githubusercontent.com/FoxVukOff/deltarune-foxvuk-keybinds/refs/heads/main/version.txt"
+REPO_URL = "https://github.com/FoxVukOff/deltarune-foxvuk-keybinds"
+
+
+# ================================================================
+# Update check
+# ================================================================
+
+def parse_version(v: str) -> tuple[int, int, int]:
+    """Parse 'v1.0.3' -> (1, 0, 3)."""
+    v = v.strip().lstrip("v")
+    parts = v.split(".")
+    try:
+        return (int(parts[0]), int(parts[1]), int(parts[2]))
+    except (IndexError, ValueError):
+        return (0, 0, 0)
+
+
+def check_for_updates(lang: str) -> bool:
+    """Check for updates from GitHub. Returns False if update is mandatory and user must quit."""
+    t = LANG[lang]
+    try:
+        import urllib.request
+        # CDN cache busting: add random timestamp
+        bust_url = f"{UPDATE_URL}?_t={int(time.time() * 1000)}"
+        req = urllib.request.Request(bust_url, headers={"Cache-Control": "no-cache", "Pragma": "no-cache"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            raw = resp.read().decode("utf-8").strip()
+
+        # Format: v0.0.0:imp  or  v0.0.0:notimp  or  v0.0.0:ignore
+        if ":" not in raw:
+            return True
+
+        ver_str, importance = raw.split(":", 1)
+        ver_str = ver_str.strip()
+        importance = importance.strip().lower()
+
+        remote_ver = parse_version(ver_str)
+        local_ver = parse_version(CURRENT_VERSION)
+
+        if remote_ver <= local_ver:
+            return True  # No update or same version
+
+        # Update detected
+        ver_display = ver_str if ver_str.startswith("v") else f"v{ver_str}"
+
+        if importance == "ignore":
+            # Just note it, keep working
+            print(f"  [Update] Note: {ver_display} exists (current: v{CURRENT_VERSION}). Ignored.")
+            print()
+            return True
+
+        elif importance == "imp":
+            # Mandatory — block until updated
+            print()
+            print("  " + "=" * 50)
+            print(f"  IMPORTANT UPDATE: {ver_display}")
+            print(f"  Current version: v{CURRENT_VERSION}")
+            print()
+            print(f"  This update is required to continue.")
+            print(f"  Download: {REPO_URL}")
+            print("  " + "=" * 50)
+            print()
+            print("  Program will NOT work without this update.")
+            print("  Press Enter to exit...")
+            input()
+            return False
+
+        else:
+            # notimp — warn but allow
+            print()
+            print("  " + "-" * 50)
+            print(f"  Update available: {ver_display}")
+            print(f"  Current version: v{CURRENT_VERSION}")
+            print(f"  Download: {REPO_URL}")
+            print("  " + "-" * 50)
+            print("  You can continue, but consider updating.")
+            print()
+            return True
+
+    except Exception:
+        # Network error — don't block, just skip
+        return True
+
 
 # ================================================================
 # Migration: v1.0.0-v1.0.2 -> v1.0.3
@@ -674,6 +759,10 @@ def main():
 
     lang = select_language(config)
     t = LANG[lang]
+
+    # Check for updates (before anything else)
+    if not check_for_updates(lang):
+        sys.exit(0)
 
     if was_migrated:
         print(f"  {t['migrated']}\n")
