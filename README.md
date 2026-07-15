@@ -1,4 +1,4 @@
-# Deltarune Key Remapper (Latest Version: v1.0.6)
+# Deltarune Key Remapper (Latest Version: v1.0.7)
 
 🌐 **Language / Язык:**
 * [🇬🇧 English Version](#-english-version)
