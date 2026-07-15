@@ -1,45 +1,28 @@
 # -*- coding: utf-8 -*-
 """
 ================================================================
- Deltarune Key Remapper
+ Deltarune Key Remapper v1.0.3
 ================================================================
 
-WASD  ->  arrows (Up / Left / Down / Right)
-Q     ->  Z
-E     ->  X
-R     ->  C (phone/call menu)
+Target keys (what the game receives):
+    Up / Left / Down / Right  —  movement
+    Z                         —  confirm / interact
+    X                         —  cancel / run
+    C                         —  phone / call menu
 
-Fully supports diagonals and any simultaneous key presses —
-as if you were physically pressing the arrows: you don't need to
-release one key for another to work.
+Source keys (what you press) — fully customizable:
+    Default: W A S D Q E R
 
 Hotkeys:
     Ctrl+Alt+V          — toggle remap on/off
     Ctrl+Alt+Backspace  — quit the program
-    Ctrl+C in console   — fallback quit
-
-Layout switching:
-    N                   — cycle through preset layouts
 
 ----------------------------------------------------------------
-SAFETY: why this won't lock your keyboard
+SAFETY: hooks ONLY the keys in your config. Nothing else.
 ----------------------------------------------------------------
-The script hooks EXACTLY the keys listed in your config — each
-via its own keyboard.hook_key(). NOTHING else is hooked. Alt+Tab,
-Win, Esc, F-keys, Ctrl+Shift+Esc etc. cannot be blocked by this
-script.
-
-----------------------------------------------------------------
-First run: language selection (EN / RU), mode (GUI / NonGUI)
-All settings are saved to preferences.json.
+First run: language (EN/RU), mode (GUI/NonGUI), key binding setup.
+All settings saved to preferences.json.
 ================================================================
-
-Installation (once):
-    pip install keyboard
-    pip install PyQt6        (only if using GUI mode)
-
-Launch (MUST be run as Administrator):
-    python deltarune_remap.py
 """
 
 import ctypes
@@ -71,36 +54,36 @@ PREFERENCES_FILE = os.path.join(SCRIPT_DIR, "preferences.json")
 
 
 # ================================================================
-# Migration: v1.0.0/v1.0.1 -> v1.0.2
+# Migration: v1.0.0-v1.0.2 -> v1.0.3
 # ================================================================
 
 def migrate_preferences(data: dict) -> dict:
-    """
-    Migrate old preferences to v1.0.2 format.
+    """Migrate old preferences to v1.0.3 format.
+    v1.0.3 uses source->target mapping where targets are fixed
+    (up/down/left/right/z/x/c) and sources are customizable."""
+    old_remap = data.get("remap", {})
 
-    v1.0.0: had "c": null (C disabled)
-    v1.0.1: had "c": "r" (C -> R, wrong direction)
-    v1.0.2: "r": "c" (R -> C, correct direction), no "c" key in remap
-    """
-    remap = data.get("remap", {})
+    # Build new format: target -> source
+    new_targets = {
+        "up": "w",
+        "down": "s",
+        "left": "a",
+        "right": "d",
+        "z": "q",
+        "x": "e",
+        "c": "r",
+    }
 
-    # v1.0.1 had "c": "r" — remove it
-    if "c" in remap:
-        del remap["c"]
+    # Try to preserve old mappings
+    # old format was: source -> target (e.g. "w": "up")
+    for source, target in old_remap.items():
+        if target in new_targets and source not in new_targets.values():
+            new_targets[target] = source
 
-    # v1.0.0 had "c": null — remove it
-    if "c" in remap:
-        del remap["c"]
-
-    # Add R -> C if not present
-    if "r" not in remap:
-        remap["r"] = "c"
-
-    data["remap"] = remap
-
-    # Add version marker
-    data["version"] = "1.0.2"
-
+    data["targets"] = new_targets
+    data.pop("remap", None)
+    data.pop("layout_preset", None)
+    data["version"] = "1.0.3"
     return data
 
 
@@ -110,241 +93,106 @@ def migrate_preferences(data: dict) -> dict:
 
 LANG = {
     "en": {
-        # Banner
-        "banner_title": "Deltarune Key Remapper",
-        "banner_wasd": "W A S D  ->  arrows (diagonals work)",
-        "banner_q": "Q        ->  Z",
-        "banner_e": "E        ->  X",
-        "banner_r": "R        ->  C (phone menu)",
+        "banner_title": "Deltarune Key Remapper v1.0.3",
+        "banner_target": "Target (game receives):",
         "banner_toggle": "{hotkey}  —  toggle remap on/off",
         "banner_quit": "{hotkey}  —  quit the program",
-        "banner_switch": "N        —  switch layout preset",
         "banner_console_quit": "Ctrl+C in this window — fallback quit",
-        "banner_safety": "If something goes wrong — use Ctrl + Alt + Backspace",
-        "banner_safety2": "It will kill the process instantly, regardless",
-        "banner_safety3": "of keyboard state. Ctrl+Alt+Delete also always",
-        "banner_safety4": "works and cannot be blocked by any program.",
-        "banner_layout_note": "Layout: R->C because R is right next to E on the keyboard.",
-        "banner_layout_note2": "Not perfect, but it works. Change it in preferences.json.",
-        # Admin warning
-        "admin_warning_title": "WARNING: NOT running as Administrator.",
-        "admin_warning_line1": "On Windows without admin rights, keyboard often",
-        "admin_warning_line2": "cannot intercept/emulate keys. If remap doesn't",
-        "admin_warning_line3": "work in-game — close this window and re-launch",
-        "admin_warning_line4": "via 'Run as Administrator'.",
-        # Status
+        "banner_safety": "If something goes wrong — Ctrl+Alt+Backspace kills the process.",
+        "banner_rebind": "Press the number key (1-7) to rebind that action.",
+        "banner_custom": "Fully customizable: change any source key to your preference.",
+        "admin_warning": "WARNING: NOT running as Administrator. Keyboard hook may not work.",
         "ready": "Ready. Remap active, switch to the game.",
         "remap_on": "Remap: ON",
         "remap_off": "Remap: OFF",
         "quit_msg": "Ctrl+Alt+Backspace — exiting...",
         "ctrl_c_msg": "Ctrl+C received, shutting down...",
         "hook_error": "Failed to install keyboard hook: {err}",
-        "hook_error_hint": "Make sure the script is running as Administrator.",
+        "hook_hint": "Make sure the script is running as Administrator.",
         "key_error": "Error handling '{key}': {err}",
-        "layout_switched": "Layout switched to: {name}",
-        "migrated": "Settings migrated from old version to v1.0.2.",
-        # Window detection
-        "window_check_enabled": "Window detection: ON (Deltarune window must be focused)",
-        "window_check_disabled": "Window detection: OFF",
-        "window_not_found": "WARNING: Deltarune window not found! Remap may not work.",
-        "window_not_focused": "WARNING: Deltarune is not the active window. Remap may not work in-game.",
-        # Language selection
+        "migrated": "Settings migrated to v1.0.3 format.",
+        "rebind_prompt": "Press a key to bind to {target} (or ESC to keep '{current}'): ",
+        "rebound": "{target} <- {key}",
+        "kept": "{target} kept as {key}",
+        "window_not_found": "WARNING: Deltarune window not found!",
+        "window_not_focused": "WARNING: Deltarune is not the active window.",
         "lang_prompt": "Select language / Выберите язык:",
-        "lang_en": "1) English",
-        "lang_ru": "2) Русский",
-        "lang_choice": "Your choice (1 or 2): ",
         "lang_saved": "Language saved.",
-        # Mode selection
         "mode_prompt": "Select interface mode:",
         "mode_nogui": "1) NonGUI (console)",
         "mode_gui": "2) GUI (PyQt6 window)",
-        "mode_choice": "Your choice (1 or 2): ",
         "mode_saved": "Mode saved.",
         "mode_gui_missing": "PyQt6 not installed. Install with: pip install PyQt6",
-        # Preferences
-        "prefs_created": "Created default preferences.json",
-        "prefs_loaded": "Loaded preferences from preferences.json",
-        "prefs_saving": "Saving preferences...",
-        # Config display
-        "config_title": "Current configuration:",
-        "config_remap": "Remap bindings:",
-        "config_disabled": "(disabled)",
-        "config_hotkeys": "Hotkeys:",
-        "config_toggle": "Toggle:",
-        "config_quit": "Quit:",
-        "config_window_check": "Window detection:",
-        "config_mode": "Mode:",
-        "config_yes": "ON",
-        "config_no": "OFF",
-        # Interactive config
-        "config_ask": "Would you like to configure key bindings? (y/n): ",
-        "config_source_prompt": "Remap '{src}' to (leave empty to disable, or enter key name): ",
-        "config_toggle_prompt": "Toggle hotkey (e.g. ctrl+alt+v): ",
-        "config_quit_prompt": "Quit hotkey (e.g. ctrl+alt+backspace): ",
-        "config_window_prompt": "Enable Deltarune window detection? (y/n): ",
-        "config_saved": "Configuration saved to preferences.json",
-        "config_key_disabled": "'{src}' remapping disabled.",
-        "config_key_set": "'{src}' -> '{target}'",
-        "config_invalid_key": "Invalid key name '{key}'. Use a valid keyboard key name.",
+        "config_saved": "Configuration saved.",
+        "bindings_title": "Current bindings:",
+        "press_num": "Press 1-7 to rebind, S to save & start, Q to quit:",
     },
     "ru": {
-        # Banner
-        "banner_title": "Ремап клавиш для Deltarune",
-        "banner_wasd": "W A S D  ->  стрелки (диагонали работают)",
-        "banner_q": "Q        ->  Z",
-        "banner_e": "E        ->  X",
-        "banner_r": "R        ->  C (меню звонка)",
+        "banner_title": "Ремап клавиш для Deltarune v1.0.3",
+        "banner_target": "Цель (игра получает):",
         "banner_toggle": "{hotkey}  —  включить/выключить ремап",
         "banner_quit": "{hotkey}  —  выйти из программы",
-        "banner_switch": "N        —  сменить раскладку",
         "banner_console_quit": "Ctrl+C в этом окне — запасной способ выйти",
-        "banner_safety": "Если что-то пошло не так — используйте Ctrl + Alt + Backspace",
-        "banner_safety2": "Она убьёт процесс мгновенно, независимо",
-        "banner_safety3": "от состояния клавиатуры. Ctrl+Alt+Delete тоже всегда",
-        "banner_safety4": "работает и не может быть заблокирована ни одной программой.",
-        "banner_layout_note": "Раскладка: R->C потому что R рядом с E на клавиатуре.",
-        "banner_layout_note2": "Не идеально, но работает. Можно поменять в preferences.json.",
-        # Admin warning
-        "admin_warning_title": "ВНИМАНИЕ: окно запущено НЕ от имени администратора.",
-        "admin_warning_line1": "На Windows без прав администратора keyboard часто не",
-        "admin_warning_line2": "может подавлять/перехватывать клавиши. Если ремап не",
-        "admin_warning_line3": "срабатывает в игре — закройте окно и запустите скрипт",
-        "admin_warning_line4": "через 'Запуск от имени администратора'.",
-        # Status
+        "banner_safety": "Если что-то не так — Ctrl+Alt+Backspace убивает процесс.",
+        "banner_rebind": "Нажмите цифру (1-7) чтобы переназначить клавишу.",
+        "banner_custom": "Полная кастомизация: меняйте любую клавишу под себя.",
+        "admin_warning": "ВНИМАНИЕ: не от администратора. Хук может не работать.",
         "ready": "Готово. Ремап активен, можно переключаться в игру.",
         "remap_on": "[Ремап] ВКЛЮЧЁН",
         "remap_off": "[Ремап] ВЫКЛЮЧЕН",
-        "quit_msg": "[Ремап] Ctrl+Alt+Backspace — выхожу из программы...",
-        "ctrl_c_msg": "\n[Ремап] Получен Ctrl+C, завершаюсь...",
-        "hook_error": "Не удалось установить перехват клавиатуры: {err}",
-        "hook_error_hint": "Убедитесь, что скрипт запущен от имени администратора.",
-        "key_error": "Ошибка обработки '{key}': {err}",
-        "layout_switched": "Раскладка переключена: {name}",
-        "migrated": "Настройки мигрированы со старой версии на v1.0.2.",
-        # Window detection
-        "window_check_enabled": "Проверка окна: ВКЛ (окно Deltarune должно быть активным)",
-        "window_check_disabled": "Проверка окна: ВЫКЛ",
-        "window_not_found": "ВНИМАНИЕ: Окно Deltarune не найдено! Ремап может не работать.",
-        "window_not_focused": "ВНИМАНИЕ: Deltarune не является активным окном. Ремап может не работать в игре.",
-        # Language selection
+        "quit_msg": "Ctrl+Alt+Backspace — выхожу...",
+        "ctrl_c_msg": "\nПолучен Ctrl+C, завершаюсь...",
+        "hook_error": "Не удалось установить хук: {err}",
+        "hook_hint": "Запустите от имени администратора.",
+        "key_error": "Ошибка '{key}': {err}",
+        "migrated": "Настройки мигрированы на v1.0.3.",
+        "rebind_prompt": "Нажмите клавишу для {target} (ESC чтобы оставить '{current}'): ",
+        "rebound": "{target} <- {key}",
+        "kept": "{target} осталась {key}",
+        "window_not_found": "ВНИМАНИЕ: Окно Deltarune не найдено!",
+        "window_not_focused": "ВНИМАНИЕ: Deltarune не активно.",
         "lang_prompt": "Select language / Выберите язык:",
-        "lang_en": "1) English",
-        "lang_ru": "2) Русский",
-        "lang_choice": "Your choice (1 or 2): ",
         "lang_saved": "Язык сохранён.",
-        # Mode selection
-        "mode_prompt": "Выберите режим интерфейса:",
+        "mode_prompt": "Выберите режим:",
         "mode_nogui": "1) NonGUI (консоль)",
         "mode_gui": "2) GUI (окно PyQt6)",
-        "mode_choice": "Ваш выбор (1 или 2): ",
         "mode_saved": "Режим сохранён.",
         "mode_gui_missing": "PyQt6 не установлен. Установите: pip install PyQt6",
-        # Preferences
-        "prefs_created": "Создан default preferences.json",
-        "prefs_loaded": "Загружены настройки из preferences.json",
-        "prefs_saving": "Сохраняю настройки...",
-        # Config display
-        "config_title": "Текущая конфигурация:",
-        "config_remap": "Привязки клавиш:",
-        "config_disabled": "(отключено)",
-        "config_hotkeys": "Горячие клавиши:",
-        "config_toggle": "Переключение:",
-        "config_quit": "Выход:",
-        "config_window_check": "Проверка окна:",
-        "config_mode": "Режим:",
-        "config_yes": "ВКЛ",
-        "config_no": "ВЫКЛ",
-        # Interactive config
-        "config_ask": "Настроить привязки клавиш? (y/n): ",
-        "config_source_prompt": "Перенаправить '{src}' на (оставьте пустым для отключения, или введите имя клавиши): ",
-        "config_toggle_prompt": "Горячая клавиша переключения (напр. ctrl+alt+v): ",
-        "config_quit_prompt": "Горячая клавиша выхода (напр. ctrl+alt+backspace): ",
-        "config_window_prompt": "Включить проверку окна Deltarune? (y/n): ",
-        "config_saved": "Конфигурация сохранена в preferences.json",
-        "config_key_disabled": "Перенаправление '{src}' отключено.",
-        "config_key_set": "'{src}' -> '{target}'",
-        "config_invalid_key": "Неверное имя клавиши '{key}'. Используйте корректное имя клавиши.",
+        "config_saved": "Настройки сохранены.",
+        "bindings_title": "Текущие привязки:",
+        "press_num": "Нажмите 1-7 для переназначения, S — сохранить и старт, Q — выход:",
     },
 }
 
 
 # ================================================================
-# Layout presets
+# Default targets -> source keys
 # ================================================================
 
-LAYOUT_PRESETS = {
-    "default": {
-        "name_en": "Default (R->C)",
-        "name_ru": "Стандартная (R->C)",
-        "remap": {
-            "w": "up",
-            "a": "left",
-            "s": "down",
-            "d": "right",
-            "q": "z",
-            "e": "x",
-            "r": "c",
-        },
-    },
-    "classic": {
-        "name_en": "Classic (no R)",
-        "name_ru": "Классическая (без R)",
-        "remap": {
-            "w": "up",
-            "a": "left",
-            "s": "down",
-            "d": "right",
-            "q": "z",
-            "e": "x",
-            "r": None,
-        },
-    },
-    "full": {
-        "name_en": "Full (R->C pass-through)",
-        "name_ru": "Полная (R->C проходит)",
-        "remap": {
-            "w": "up",
-            "a": "left",
-            "s": "down",
-            "d": "right",
-            "q": "z",
-            "e": "x",
-            "r": "c",
-        },
-    },
+DEFAULT_TARGETS = {
+    "up": "w",
+    "down": "s",
+    "left": "a",
+    "right": "d",
+    "z": "q",
+    "x": "e",
+    "c": "r",
 }
 
-
-# ================================================================
-# Configuration
-# ================================================================
-
-DEFAULT_REMAP = {
-    "w": "up",
-    "a": "left",
-    "s": "down",
-    "d": "right",
-    "q": "z",
-    "e": "x",
-    "r": "c",
-}
-
-DEFAULT_HOTKEYS = {
-    "toggle": "ctrl+alt+v",
-    "quit": "ctrl+alt+backspace",
-}
+TARGET_ORDER = ["up", "down", "left", "right", "z", "x", "c"]
 
 DEFAULT_CONFIG = {
     "language": None,
     "mode": None,
-    "remap": dict(DEFAULT_REMAP),
-    "hotkeys": dict(DEFAULT_HOTKEYS),
+    "targets": dict(DEFAULT_TARGETS),
+    "hotkeys": {
+        "toggle": "ctrl+alt+v",
+        "quit": "ctrl+alt+backspace",
+    },
     "window_check": True,
-    "layout_preset": "default",
-    "version": "1.0.2",
+    "version": "1.0.3",
 }
 
-# Valid keyboard key names for validation
 VALID_KEYS = {
     "a","b","c","d","e","f","g","h","i","j","k","l","m",
     "n","o","p","q","r","s","t","u","v","w","x","y","z",
@@ -355,38 +203,31 @@ VALID_KEYS = {
     "home","end","pageup","pagedown",
     "capslock","numlock","scrolllock",
     "`","-","=","[","]","\\",";","'",",",".","/",
-    "ctrl","alt","shift","win",
 }
 
 
 # ================================================================
-# Preferences management
+# Preferences
 # ================================================================
 
 def load_preferences() -> tuple[dict, bool]:
-    """Load preferences from JSON file, or return defaults.
-    Returns (config, was_migrated)."""
     was_migrated = False
     if os.path.exists(PREFERENCES_FILE):
         try:
             with open(PREFERENCES_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-
-            # Check if migration is needed
-            old_version = data.get("version", "1.0.0")
-            if old_version in ("1.0.0", "1.0.1", None):
+            old_ver = data.get("version", "1.0.0")
+            if old_ver in ("1.0.0", "1.0.1", "1.0.2", None):
                 data = migrate_preferences(data)
                 was_migrated = True
-
-            # Merge with defaults in case new keys were added
             config = dict(DEFAULT_CONFIG)
             config.update(data)
-            if "remap" in data:
-                remap = dict(DEFAULT_REMAP)
-                remap.update(data["remap"])
-                config["remap"] = remap
+            if "targets" in data:
+                targets = dict(DEFAULT_TARGETS)
+                targets.update(data["targets"])
+                config["targets"] = targets
             if "hotkeys" in data:
-                hotkeys = dict(DEFAULT_HOTKEYS)
+                hotkeys = dict(DEFAULT_CONFIG["hotkeys"])
                 hotkeys.update(data["hotkeys"])
                 config["hotkeys"] = hotkeys
             return config, was_migrated
@@ -395,10 +236,8 @@ def load_preferences() -> tuple[dict, bool]:
     return dict(DEFAULT_CONFIG), was_migrated
 
 
-def save_preferences(config: dict, lang: str):
-    t = LANG[lang]
-    print(t["prefs_saving"])
-    config["version"] = "1.0.2"
+def save_preferences(config: dict):
+    config["version"] = "1.0.3"
     with open(PREFERENCES_FILE, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
 
@@ -410,91 +249,107 @@ def save_preferences(config: dict, lang: str):
 def select_language(config: dict) -> str:
     if config.get("language") in ("en", "ru"):
         return config["language"]
-
-    print("=" * 62)
+    print("=" * 55)
     print("  Select language / Выберите язык:")
-    print("=" * 62)
+    print("=" * 55)
     print("  1) English")
     print("  2) Русский")
-    print("=" * 62)
-
+    print("=" * 55)
     while True:
         choice = input("  Your choice (1 or 2): ").strip()
         if choice == "1":
-            lang = "en"
-            break
+            lang = "en"; break
         elif choice == "2":
-            lang = "ru"
-            break
-        print("  Please enter 1 or 2 / Введите 1 или 2")
-
+            lang = "ru"; break
     config["language"] = lang
-    save_preferences(config, lang)
-    print(f"  {LANG[lang]['lang_saved']}")
-    print()
+    save_preferences(config)
+    print(f"  {LANG[lang]['lang_saved']}\n")
     return lang
 
 
 # ================================================================
-# Mode selection (GUI / NonGUI)
+# Mode selection
 # ================================================================
 
 def select_mode(config: dict, lang: str) -> str:
     if config.get("mode") in ("gui", "nogui"):
         return config["mode"]
-
     t = LANG[lang]
-    print("=" * 62)
+    print("=" * 55)
     print(f"  {t['mode_prompt']}")
-    print("=" * 62)
+    print("=" * 55)
     print(f"  {t['mode_nogui']}")
     print(f"  {t['mode_gui']}")
-    print("=" * 62)
-
+    print("=" * 55)
     while True:
-        choice = input(f"  {t['mode_choice']}").strip()
+        choice = input("  > ").strip()
         if choice == "1":
-            mode = "nogui"
-            break
+            mode = "nogui"; break
         elif choice == "2":
             try:
                 import PyQt6  # noqa: F401
-                mode = "gui"
+                mode = "gui"; break
             except ImportError:
                 print(f"  {t['mode_gui_missing']}")
-                continue
-            break
-        print("  Please enter 1 or 2 / Введите 1 или 2")
-
     config["mode"] = mode
-    save_preferences(config, lang)
-    print(f"  {t['mode_saved']}")
-    print()
+    save_preferences(config)
+    print(f"  {t['mode_saved']}\n")
     return mode
 
 
 # ================================================================
-# Layout switching
+# NonGUI rebinding
 # ================================================================
 
-def switch_layout(config: dict, lang: str) -> dict:
-    preset_keys = list(LAYOUT_PRESETS.keys())
-    current = config.get("layout_preset", "default")
-    try:
-        idx = preset_keys.index(current)
-    except ValueError:
-        idx = 0
-    next_idx = (idx + 1) % len(preset_keys)
-    next_key = preset_keys[next_idx]
+def listen_for_key() -> str | None:
+    """Block until a key is pressed, return its name. ESC returns None."""
+    event = keyboard.read_event(suppress=True)
+    if event.event_type == keyboard.KEY_DOWN:
+        if event.name == "esc":
+            return None
+        return event.name
+    return None
 
-    preset = LAYOUT_PRESETS[next_key]
-    config["layout_preset"] = next_key
-    config["remap"] = dict(preset["remap"])
 
-    name = preset[f"name_{lang}"]
+def rebind_interactive(config: dict, lang: str) -> dict:
+    """NonGUI interactive key rebinding."""
     t = LANG[lang]
-    print(t["layout_switched"].format(name=name))
-    return config
+    targets = config["targets"]
+
+    while True:
+        print()
+        print(f"  {t['bindings_title']}")
+        print("  " + "-" * 40)
+        for i, target in enumerate(TARGET_ORDER, 1):
+            src = targets.get(target, "?")
+            print(f"    {i}) {target.upper():>6}  <-  {src}")
+        print("  " + "-" * 40)
+        print(f"  {t['press_num']}")
+
+        choice = input("  > ").strip().lower()
+
+        if choice == "s":
+            save_preferences(config)
+            print(f"  {t['config_saved']}")
+            return config
+        elif choice == "q":
+            sys.exit(0)
+        elif choice.isdigit():
+            idx = int(choice) - 1
+            if 0 <= idx < len(TARGET_ORDER):
+                target = TARGET_ORDER[idx]
+                current = targets.get(target, "?")
+                print(f"  {t['rebind_prompt'].format(target=target.upper(), current=current)}", end="", flush=True)
+                key = listen_for_key()
+                if key is None:
+                    print(f"  {t['kept'].format(target=target.upper(), key=current)}")
+                elif key in VALID_KEYS:
+                    targets[target] = key
+                    print(f"  {t['rebound'].format(target=target.upper(), key=key)}")
+                else:
+                    print(f"  Invalid key: {key}")
+            else:
+                print("  Invalid number")
 
 
 # ================================================================
@@ -504,16 +359,12 @@ def switch_layout(config: dict, lang: str) -> dict:
 def find_deltarune_hwnd() -> int | None:
     if not HAS_WIN32:
         return None
-
     result = [None]
-
     def callback(hwnd, _):
         if win32gui.IsWindowVisible(hwnd):
-            title = win32gui.GetWindowText(hwnd)
-            if "deltarune" in title.lower():
+            if "deltarune" in win32gui.GetWindowText(hwnd).lower():
                 result[0] = hwnd
         return True
-
     win32gui.EnumWindows(callback, None)
     return result[0]
 
@@ -521,41 +372,30 @@ def find_deltarune_hwnd() -> int | None:
 def is_deltarune_focused() -> bool:
     if not HAS_WIN32:
         return True
-
     hwnd = find_deltarune_hwnd()
-    if hwnd is None:
-        return False
-    return win32gui.GetForegroundWindow() == hwnd
+    return hwnd is not None and win32gui.GetForegroundWindow() == hwnd
 
 
 # ================================================================
-# State
+# State & hooks
 # ================================================================
 
 class RemapState:
-    def __init__(self, config: dict, lang: str):
+    def __init__(self, config, lang):
         self.enabled = True
         self.running = True
-        self.pressed_targets = set()
-        self.config = config
-        self.lang = lang
-        self.window_warned = False
+        self.pressed = set()
         self.t = LANG[lang]
 
     def release_all(self):
-        for target in list(self.pressed_targets):
-            try:
-                keyboard.release(target)
-            except Exception:
-                pass
-        self.pressed_targets.clear()
+        for k in list(self.pressed):
+            try: keyboard.release(k)
+            except: pass
+        self.pressed.clear()
 
     def toggle(self):
         self.enabled = not self.enabled
-        if self.enabled:
-            print(self.t["remap_on"])
-        else:
-            print(self.t["remap_off"])
+        print(self.t["remap_on"] if self.enabled else self.t["remap_off"])
         if not self.enabled:
             self.release_all()
 
@@ -565,359 +405,219 @@ class RemapState:
         self.release_all()
 
 
-# ================================================================
-# Key handler
-# ================================================================
-
-def make_key_handler(state: RemapState, source_key: str, target_key: str):
-    def handler(event: keyboard.KeyboardEvent) -> bool:
+def make_handler(state, target_key):
+    def handler(event):
         try:
             if not state.enabled:
                 return True
-
             if event.event_type == keyboard.KEY_DOWN:
-                if target_key not in state.pressed_targets:
-                    state.pressed_targets.add(target_key)
+                if target_key not in state.pressed:
+                    state.pressed.add(target_key)
                     keyboard.press(target_key)
             elif event.event_type == keyboard.KEY_UP:
-                if target_key in state.pressed_targets:
-                    state.pressed_targets.discard(target_key)
+                if target_key in state.pressed:
+                    state.pressed.discard(target_key)
                     keyboard.release(target_key)
-
             return False
         except Exception as exc:
-            print(state.t["key_error"].format(key=source_key, err=repr(exc)))
+            print(state.t["key_error"].format(key=target_key, err=repr(exc)))
             return True
-
     return handler
 
 
-# ================================================================
-# Hook management
-# ================================================================
-
-def install_hooks(state: RemapState, config: dict, lang: str):
-    t = LANG[lang]
+def install_hooks(state, config):
+    targets = config["targets"]
     try:
-        for source_key, target_key in config["remap"].items():
-            if target_key is not None:
-                keyboard.hook_key(
-                    source_key,
-                    make_key_handler(state, source_key, target_key),
-                    suppress=True,
-                )
-
+        for target, source in targets.items():
+            if source is not None:
+                keyboard.hook_key(source, make_handler(state, target), suppress=True)
         keyboard.add_hotkey(config["hotkeys"]["toggle"], state.toggle, suppress=True)
         keyboard.add_hotkey(config["hotkeys"]["quit"], state.request_quit, suppress=True)
     except Exception as exc:
-        print(t["hook_error"].format(err=repr(exc)))
-        print(t["hook_error_hint"])
+        print(state.t["hook_error"].format(err=repr(exc)))
+        print(state.t["hook_hint"])
         sys.exit(1)
 
 
-def reinstall_hooks(state: RemapState, config: dict, lang: str):
-    try:
-        keyboard.unhook_all()
-    except Exception:
-        pass
-    state.pressed_targets.clear()
-    install_hooks(state, config, lang)
+def reinstall_hooks(state, config):
+    try: keyboard.unhook_all()
+    except: pass
+    state.pressed.clear()
+    install_hooks(state, config)
 
 
 # ================================================================
 # Utilities
 # ================================================================
 
-def is_admin() -> bool:
-    try:
-        return bool(ctypes.windll.shell32.IsUserAnAdmin())
-    except Exception:
-        return False
+def is_admin():
+    try: return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except: return False
 
-
-def set_console_title(title: str):
-    try:
-        ctypes.windll.kernel32.SetConsoleTitleW(title)
-    except Exception:
-        pass
+def set_console_title(title):
+    try: ctypes.windll.kernel32.SetConsoleTitleW(title)
+    except: pass
 
 
 # ================================================================
-# Interactive configuration
+# GUI (PyQt6)
 # ================================================================
 
-def interactive_config(config: dict, lang: str) -> dict:
-    t = LANG[lang]
-
-    print()
-    print("=" * 62)
-    print(f" {t['config_title']}")
-    print("=" * 62)
-
-    print(f" {t['config_remap']}")
-    for src, tgt in config["remap"].items():
-        if tgt is None:
-            print(f"   {src.upper():>5}  ->  {t['config_disabled']}")
-        else:
-            print(f"   {src.upper():>5}  ->  {tgt}")
-
-    print()
-    print(f" {t['config_hotkeys']}")
-    print(f"   {t['config_toggle']}  {config['hotkeys']['toggle']}")
-    print(f"   {t['config_quit']}  {config['hotkeys']['quit']}")
-    print()
-    wc = t["config_yes"] if config.get("window_check", True) else t["config_no"]
-    print(f" {t['config_window_check']}  {wc}")
-    mode_str = "GUI" if config.get("mode") == "gui" else "NonGUI"
-    print(f" {t['config_mode']}  {mode_str}")
-    print("=" * 62)
-
-    answer = input(f"\n {t['config_ask']}").strip().lower()
-    if answer != "y":
-        return config
-
-    for src in list(config["remap"].keys()):
-        current = config["remap"][src]
-        current_str = current if current else ""
-        prompt = t["config_source_prompt"].format(src=src.upper())
-        if current_str:
-            prompt += f" [{current_str}] "
-        new_val = input(f"  {prompt}").strip().lower()
-
-        if new_val == "":
-            config["remap"][src] = None
-            print(f"  -> {t['config_key_disabled'].format(src=src.upper())}")
-        elif new_val in VALID_KEYS or "+" in new_val:
-            config["remap"][src] = new_val
-            print(f"  -> {t['config_key_set'].format(src=src.upper(), target=new_val)}")
-        else:
-            print(f"  -> {t['config_invalid_key'].format(key=new_val)}")
-            print(f"  -> Kept: {current}")
-
-    print()
-    toggle = input(f"  {t['config_toggle_prompt']} [{config['hotkeys']['toggle']}] ").strip()
-    if toggle:
-        config["hotkeys"]["toggle"] = toggle
-
-    quit_hk = input(f"  {t['config_quit_prompt']} [{config['hotkeys']['quit']}] ").strip()
-    if quit_hk:
-        config["hotkeys"]["quit"] = quit_hk
-
-    print()
-    wc_answer = input(f"  {t['config_window_prompt']}").strip().lower()
-    config["window_check"] = wc_answer == "y"
-
-    save_preferences(config, lang)
-    print(f"\n {t['config_saved']}")
-    return config
-
-
-# ================================================================
-# Banner
-# ================================================================
-
-def print_banner(config: dict, lang: str):
-    t = LANG[lang]
-    toggle_hk = config["hotkeys"]["toggle"]
-    quit_hk = config["hotkeys"]["quit"]
-
-    print("=" * 62)
-    print(f" {t['banner_title']}")
-    print("=" * 62)
-    print(f" {t['banner_wasd']}")
-    print(f" {t['banner_q']}")
-    print(f" {t['banner_e']}")
-    print(f" {t['banner_r']}")
-    print("-" * 62)
-    print(f" {t['banner_toggle'].format(hotkey=toggle_hk.upper())}")
-    print(f" {t['banner_quit'].format(hotkey=quit_hk.upper())}")
-    print(f" {t['banner_switch']}")
-    print(f" {t['banner_console_quit']}")
-    print("-" * 62)
-    print(f" {t['banner_safety']}")
-    print(f" {t['banner_safety2']}")
-    print(f" {t['banner_safety3']}")
-    print(f" {t['banner_safety4']}")
-    print("-" * 62)
-    print(f" {t['banner_layout_note']}")
-    print(f" {t['banner_layout_note2']}")
-    print("=" * 62)
-
-    if not is_admin():
-        print()
-        print(f" {t['admin_warning_title']}")
-        print(f" {t['admin_warning_line1']}")
-        print(f" {t['admin_warning_line2']}")
-        print(f" {t['admin_warning_line3']}")
-        print(f" {t['admin_warning_line4']}")
-    print()
-
-
-# ================================================================
-# GUI mode (PyQt6)
-# ================================================================
-
-def run_gui(config: dict, lang: str):
-    """Run the remapper with a PyQt6 GUI window."""
+def run_gui(config, lang):
     try:
         from PyQt6.QtWidgets import (
             QApplication, QMainWindow, QLabel, QVBoxLayout,
-            QHBoxLayout, QWidget, QPushButton, QGroupBox,
-            QFrame, QSizePolicy
+            QHBoxLayout, QWidget, QPushButton, QFrame
         )
         from PyQt6.QtCore import Qt, QTimer
-        from PyQt6.QtGui import QFont, QColor, QPalette
+        from PyQt6.QtGui import QPalette, QColor
     except ImportError:
-        t = LANG[lang]
-        print(t["mode_gui_missing"])
+        print(LANG[lang]["mode_gui_missing"])
         sys.exit(1)
 
     state = RemapState(config, lang)
-    install_hooks(state, config, lang)
+    install_hooks(state, config)
 
     app = QApplication(sys.argv)
-
-    # Dark theme
     app.setStyle("Fusion")
-    palette = QPalette()
-    palette.setColor(QPalette.ColorRole.Window, QColor(30, 30, 30))
-    palette.setColor(QPalette.ColorRole.WindowText, QColor(220, 220, 220))
-    palette.setColor(QPalette.ColorRole.Base, QColor(40, 40, 40))
-    palette.setColor(QPalette.ColorRole.AlternateBase, QColor(50, 50, 50))
-    palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(50, 50, 50))
-    palette.setColor(QPalette.ColorRole.ToolTipText, QColor(220, 220, 220))
-    palette.setColor(QPalette.ColorRole.Text, QColor(220, 220, 220))
-    palette.setColor(QPalette.ColorRole.Button, QColor(50, 50, 50))
-    palette.setColor(QPalette.ColorRole.ButtonText, QColor(220, 220, 220))
-    palette.setColor(QPalette.ColorRole.BrightText, QColor(255, 50, 50))
-    palette.setColor(QPalette.ColorRole.Highlight, QColor(80, 120, 180))
-    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
-    app.setPalette(palette)
 
-    window = QMainWindow()
-    window.setWindowTitle("Deltarune Key Remapper v1.0.2")
-    window.setFixedSize(420, 400)
-    window.setStyleSheet("""
-        QMainWindow { background: #1e1e1e; }
-        QGroupBox {
-            font-size: 13px;
-            font-weight: bold;
-            color: #aaa;
-            border: 1px solid #444;
-            border-radius: 6px;
-            margin-top: 10px;
-            padding-top: 15px;
-        }
-        QGroupBox::title {
-            subcontrol-origin: margin;
-            left: 12px;
-            padding: 0 6px;
+    # Dark palette
+    p = QPalette()
+    p.setColor(QPalette.ColorRole.Window, QColor(25, 25, 25))
+    p.setColor(QPalette.ColorRole.WindowText, QColor(220, 220, 220))
+    p.setColor(QPalette.ColorRole.Base, QColor(35, 35, 35))
+    p.setColor(QPalette.ColorRole.Text, QColor(220, 220, 220))
+    p.setColor(QPalette.ColorRole.Button, QColor(45, 45, 45))
+    p.setColor(QPalette.ColorRole.ButtonText, QColor(220, 220, 220))
+    p.setColor(QPalette.ColorRole.Highlight, QColor(70, 110, 170))
+    app.setPalette(p)
+
+    win = QMainWindow()
+    win.setWindowTitle("Deltarune Key Remapper v1.0.3")
+    win.setFixedSize(440, 480)
+    win.setStyleSheet("""
+        QMainWindow { background: #191919; }
+        QFrame#card {
+            background: #252525;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 8px;
         }
         QLabel { color: #ddd; }
         QPushButton {
-            background: #333;
-            color: #ddd;
-            border: 1px solid #555;
-            border-radius: 5px;
-            padding: 8px 16px;
-            font-size: 13px;
+            background: #333; color: #ddd;
+            border: 1px solid #555; border-radius: 5px;
+            padding: 8px; font-size: 13px;
         }
-        QPushButton:hover { background: #444; border-color: #777; }
-        QPushButton:pressed { background: #555; }
+        QPushButton:hover { background: #444; }
     """)
 
     central = QWidget()
-    window.setCentralWidget(central)
+    win.setCentralWidget(central)
     layout = QVBoxLayout(central)
-    layout.setSpacing(8)
+    layout.setSpacing(6)
 
     # Status
-    status_label = QLabel("REMAPPING: ACTIVE")
-    status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    status_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #4caf50; padding: 6px;")
-    layout.addWidget(status_label)
+    status = QLabel("ACTIVE")
+    status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    status.setStyleSheet("font-size: 18px; font-weight: bold; color: #4caf50; padding: 4px;")
+    layout.addWidget(status)
 
-    # Bindings group
-    group = QGroupBox("  Active Bindings  ")
-    group_layout = QVBoxLayout()
-    group_layout.setSpacing(4)
+    # Binding rows
+    targets = config["targets"]
+    rows = []
 
-    binding_labels = []
-    for src, tgt in config["remap"].items():
-        row = QHBoxLayout()
-        key_from = QLabel(f"  {src.upper()}")
-        key_from.setStyleSheet("font-size: 15px; font-weight: bold; color: #64b5f6; min-width: 40px;")
-        arrow = QLabel("  ->  ")
-        arrow.setStyleSheet("font-size: 13px; color: #888;")
-        if tgt is not None:
-            key_to = QLabel(f"{tgt}")
-            key_to.setStyleSheet("font-size: 15px; font-weight: bold; color: #81c784;")
-        else:
-            key_to = QLabel("(disabled)")
-            key_to.setStyleSheet("font-size: 13px; color: #666;")
-        row.addWidget(key_from)
+    for target in TARGET_ORDER:
+        card = QFrame()
+        card.setObjectName("card")
+        card.setFixedHeight(42)
+        row = QHBoxLayout(card)
+        row.setContentsMargins(12, 4, 12, 4)
+
+        lbl_target = QLabel(target.upper())
+        lbl_target.setStyleSheet("font-size: 16px; font-weight: bold; color: #64b5f6; min-width: 50px;")
+        row.addWidget(lbl_target)
+
+        arrow = QLabel("  <-  ")
+        arrow.setStyleSheet("font-size: 13px; color: #666;")
         row.addWidget(arrow)
-        row.addWidget(key_to)
-        row.addStretch()
-        group_layout.addLayout(row)
-        binding_labels.append((key_from, arrow, key_to))
 
-    group.setLayout(group_layout)
-    layout.addWidget(group)
+        lbl_source = QLabel(targets.get(target, "?"))
+        lbl_source.setStyleSheet("font-size: 16px; font-weight: bold; color: #81c784; min-width: 50px;")
+        row.addWidget(lbl_source)
+
+        row.addStretch()
+
+        btn_rebind = QPushButton("Rebind")
+        btn_rebind.setFixedWidth(70)
+        btn_rebind.setStyleSheet("""
+            QPushButton { background: #1a5276; color: #aed6f1; border: none; border-radius: 4px; font-size: 11px; padding: 4px; }
+            QPushButton:hover { background: #2471a3; }
+        """)
+
+        def make_rebind(tgt, lbl, btn):
+            def on_click():
+                btn.setText("...")
+                btn.repaint()
+                # Listen for key
+                event = keyboard.read_event(suppress=True)
+                if event.event_type == keyboard.KEY_DOWN and event.name != "esc":
+                    targets[tgt] = event.name
+                    lbl.setText(event.name)
+                    config["targets"] = targets
+                    reinstall_hooks(state, config)
+                btn.setText("Rebind")
+            return on_click
+
+        btn_rebind.clicked.connect(make_rebind(target, lbl_source, btn_rebind))
+        row.addWidget(btn_rebind)
+
+        layout.addWidget(card)
+        rows.append((lbl_source, btn_rebind))
 
     # Buttons
-    btn_layout = QHBoxLayout()
+    btn_row = QHBoxLayout()
 
-    toggle_btn = QPushButton(f"Toggle\n({config['hotkeys']['toggle'].upper()})")
-    toggle_btn.setMinimumHeight(50)
+    toggle_btn = QPushButton(f"Toggle ({config['hotkeys']['toggle'].upper()})")
+    toggle_btn.setMinimumHeight(36)
     toggle_btn.setStyleSheet("""
-        QPushButton { font-size: 12px; background: #2e7d32; color: white; border: none; border-radius: 6px; }
+        QPushButton { background: #2e7d32; color: white; border: none; border-radius: 5px; font-size: 12px; }
         QPushButton:hover { background: #388e3c; }
     """)
     toggle_btn.clicked.connect(state.toggle)
-    btn_layout.addWidget(toggle_btn)
+    btn_row.addWidget(toggle_btn)
 
-    switch_btn = QPushButton("Switch\nLayout (N)")
-    switch_btn.setMinimumHeight(50)
-    switch_btn.setStyleSheet("""
-        QPushButton { font-size: 12px; background: #1565c0; color: white; border: none; border-radius: 6px; }
+    save_btn = QPushButton("Save")
+    save_btn.setMinimumHeight(36)
+    save_btn.setStyleSheet("""
+        QPushButton { background: #1565c0; color: white; border: none; border-radius: 5px; font-size: 12px; }
         QPushButton:hover { background: #1976d2; }
     """)
-    def on_switch():
-        nonlocal config
-        config = switch_layout(config, lang)
-        reinstall_hooks(state, config, lang)
-        for i, (src, tgt) in enumerate(config["remap"].items()):
-            if i < len(binding_labels):
-                _, _, key_to = binding_labels[i]
-                if tgt is not None:
-                    key_to.setText(f"{tgt}")
-                    key_to.setStyleSheet("font-size: 15px; font-weight: bold; color: #81c784;")
-                else:
-                    key_to.setText("(disabled)")
-                    key_to.setStyleSheet("font-size: 13px; color: #666;")
-    switch_btn.clicked.connect(on_switch)
-    btn_layout.addWidget(switch_btn)
+    def on_save():
+        config["targets"] = targets
+        save_preferences(config)
+    save_btn.clicked.connect(on_save)
+    btn_row.addWidget(save_btn)
 
-    quit_btn = QPushButton(f"Quit\n({config['hotkeys']['quit'].upper()})")
-    quit_btn.setMinimumHeight(50)
+    quit_btn = QPushButton(f"Quit ({config['hotkeys']['quit'].upper()})")
+    quit_btn.setMinimumHeight(36)
     quit_btn.setStyleSheet("""
-        QPushButton { font-size: 12px; background: #c62828; color: white; border: none; border-radius: 6px; }
+        QPushButton { background: #c62828; color: white; border: none; border-radius: 5px; font-size: 12px; }
         QPushButton:hover { background: #d32f2f; }
     """)
     quit_btn.clicked.connect(state.request_quit)
-    btn_layout.addWidget(quit_btn)
+    btn_row.addWidget(quit_btn)
 
-    layout.addLayout(btn_layout)
+    layout.addLayout(btn_row)
 
     # Timer
     def update():
         if state.enabled:
-            status_label.setText("REMAPPING: ACTIVE")
-            status_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #4caf50; padding: 6px;")
+            status.setText("ACTIVE")
+            status.setStyleSheet("font-size: 18px; font-weight: bold; color: #4caf50; padding: 4px;")
         else:
-            status_label.setText("REMAPPING: PAUSED")
-            status_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #f44336; padding: 6px;")
+            status.setText("PAUSED")
+            status.setStyleSheet("font-size: 18px; font-weight: bold; color: #f44336; padding: 4px;")
         if not state.running:
             app.quit()
 
@@ -925,14 +625,43 @@ def run_gui(config: dict, lang: str):
     timer.timeout.connect(update)
     timer.start(100)
 
-    window.show()
+    win.show()
     app.exec()
-
     state.release_all()
-    try:
-        keyboard.unhook_all()
-    except Exception:
-        pass
+    try: keyboard.unhook_all()
+    except: pass
+
+
+# ================================================================
+# Banner
+# ================================================================
+
+def print_banner(config, lang):
+    t = LANG[lang]
+    targets = config["targets"]
+    toggle = config["hotkeys"]["toggle"]
+    quit_hk = config["hotkeys"]["quit"]
+
+    print("=" * 55)
+    print(f"  {t['banner_title']}")
+    print("=" * 55)
+    print(f"  {t['banner_target']}")
+    for i, target in enumerate(TARGET_ORDER, 1):
+        src = targets.get(target, "?")
+        print(f"    {i}) {target.upper():>6}  <-  {src}")
+    print("-" * 55)
+    print(f"  {t['banner_toggle'].format(hotkey=toggle.upper())}")
+    print(f"  {t['banner_quit'].format(hotkey=quit_hk.upper())}")
+    print(f"  {t['banner_console_quit']}")
+    print("-" * 55)
+    print(f"  {t['banner_rebind']}")
+    print(f"  {t['banner_custom']}")
+    print("-" * 55)
+    print(f"  {t['banner_safety']}")
+    print("=" * 55)
+    if not is_admin():
+        print(f"\n  {t['admin_warning']}")
+    print()
 
 
 # ================================================================
@@ -943,95 +672,66 @@ def main():
     config, was_migrated = load_preferences()
     first_run = not os.path.exists(PREFERENCES_FILE)
 
-    # Language selection
     lang = select_language(config)
     t = LANG[lang]
 
-    # Show migration notice
     if was_migrated:
-        print(f" {t['migrated']}")
-        save_preferences(config, lang)
-        print()
+        print(f"  {t['migrated']}\n")
 
-    # Mode selection on first run
     if first_run:
         mode = select_mode(config, lang)
     else:
         mode = config.get("mode", "nogui")
 
-    # Interactive config on first run
-    if first_run:
-        config = interactive_config(config, lang)
-
-    # Set console title
     set_console_title("Deltarune Remap")
 
     # GUI mode
     if mode == "gui":
+        if first_run:
+            print(f"  Set up your key bindings:\n")
+            rebind_interactive(config, lang)
         run_gui(config, lang)
         return
 
     # NonGUI mode
     print_banner(config, lang)
 
-    if config.get("window_check", True):
-        print(f" {t['window_check_enabled']}")
-    else:
-        print(f" {t['window_check_disabled']}")
-    print()
+    if first_run:
+        print(f"  Set up your key bindings:\n")
+        rebind_interactive(config, lang)
+        print_banner(config, lang)
 
-    print(f" {t['config_remap']}")
-    for src, tgt in config["remap"].items():
-        if tgt is not None:
-            print(f"   {src.upper():>5}  ->  {tgt}")
-    print()
+    if config.get("window_check", True) and HAS_WIN32:
+        print("  Window detection: ON\n")
 
     state = RemapState(config, lang)
-    install_hooks(state, config, lang)
+    install_hooks(state, config)
 
-    # Layout switch via N key
-    def on_layout_switch():
-        nonlocal config
-        config = switch_layout(config, lang)
-        reinstall_hooks(state, config, lang)
-        print(f"\n {t['config_remap']}")
-        for src, tgt in config["remap"].items():
-            if tgt is not None:
-                print(f"   {src.upper():>5}  ->  {tgt}")
-        print()
-
-    keyboard.add_hotkey("n", on_layout_switch, suppress=True)
-
-    print(f" {t['ready']}")
-    print()
+    print(f"  {t['ready']}\n")
 
     window_warn_shown = False
     try:
         while state.running:
             time.sleep(0.1)
-
             if config.get("window_check", True) and HAS_WIN32:
                 hwnd = find_deltarune_hwnd()
                 if hwnd is None:
                     if not window_warn_shown:
-                        print(f" {t['window_not_found']}")
+                        print(f"  {t['window_not_found']}")
                         window_warn_shown = True
                 else:
                     if not is_deltarune_focused():
                         if not window_warn_shown:
-                            print(f" {t['window_not_focused']}")
+                            print(f"  {t['window_not_focused']}")
                             window_warn_shown = True
                     else:
                         window_warn_shown = False
-
     except KeyboardInterrupt:
         print(t["ctrl_c_msg"])
     finally:
         state.release_all()
-        try:
-            keyboard.unhook_all()
-        except Exception:
-            pass
+        try: keyboard.unhook_all()
+        except: pass
         sys.exit(0)
 
 

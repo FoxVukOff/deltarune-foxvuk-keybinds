@@ -8,180 +8,156 @@
 
 ## 🇬🇧 English Version
 
-Custom Deltarune keybind configuration script by FoxVuk. Remaps control keys to a classic layout and handles system execution safely.
+Custom Deltarune keybind configuration script by FoxVuk. Fully customizable key remapping with GUI and console modes.
 
-### About the Layout
+### How It Works
 
-Why R -> C? Because R is right next to E on the keyboard — it's the closest convenient key for the phone/call menu. Is this the perfect layout? Honestly, no. But it works, it's nearby, and after trying a few options this is what stuck. You can change any binding in `preferences.json` or switch presets by pressing **N** in-game.
+The game receives fixed target keys: **arrows, Z, X, C**. You choose which physical keys trigger them. Default: W A S D Q E R — but you can change every single one directly in the program.
 
 ### Features
 
-* **WASD -> Arrows** (Up / Left / Down / Right)
-* **Q -> Z** (Confirm / Interact)
-* **E -> X** (Cancel / Run)
-* **R -> C** (Phone / Call menu — R is right next to E)
-* **Full Diagonal Support**: Handles simultaneous key presses perfectly without ghosting or stuck keys.
-* **Custom Key Bindings**: Remap any key to any other key, or disable remapping for specific keys entirely.
-* **Layout Presets**: Press **N** to cycle through presets (Default, Classic, Full). Changeable anytime.
+* **Full Customization**: Rebind any source key to any target (Up/Down/Left/Right/Z/X/C) — right in the program, not just in JSON.
+* **GUI Mode**: PyQt6 window with Rebind buttons — click, press a key, done.
+* **NonGUI Mode**: Console interface — press 1-7 to select an action, then press your desired key.
+* **Full Diagonal Support**: Simultaneous key presses work perfectly.
 * **Window Detection**: Warns when Deltarune window is not found or not focused.
-* **GUI & NonGUI Modes**: Console interface by default, or optional PyQt6 GUI window.
 * **Global Hotkeys**:
   * `Ctrl + Alt + V` — Toggle remapper ON/OFF
-  * `Ctrl + Alt + Backspace` — Force quit the application
-* **Bilingual Interface**: English and Russian, selectable on first run.
-* **Persistent Settings**: All configuration saved to `preferences.json`.
-* **Auto Migration**: Settings from v1.0.0/v1.0.1 are automatically migrated to v1.0.2.
+  * `Ctrl + Alt + Backspace` — Force quit
+* **Bilingual**: English and Russian, selectable on first run.
+* **Persistent Settings**: All bindings saved to `preferences.json`.
+* **Auto Migration**: Settings from v1.0.0-v1.0.2 are automatically converted.
+
+### Default Bindings
+
+| Action | Target (game gets) | Source (you press) |
+|--------|-------------------|-------------------|
+| Up     | Up arrow          | W                 |
+| Down   | Down arrow        | S                 |
+| Left   | Left arrow        | A                 |
+| Right  | Right arrow       | D                 |
+| Confirm| Z                 | Q                 |
+| Cancel | X                 | E                 |
+| Phone  | C                 | R                 |
 
 ### Configuration (preferences.json)
-
-Created automatically on first run. You can edit it manually or reconfigure interactively.
 
 ```json
 {
   "language": "en",
   "mode": "nogui",
-  "remap": {
-    "w": "up",
-    "a": "left",
-    "s": "down",
-    "d": "right",
-    "q": "z",
-    "e": "x",
-    "r": "c"
+  "targets": {
+    "up": "w",
+    "down": "s",
+    "left": "a",
+    "right": "d",
+    "z": "q",
+    "x": "e",
+    "c": "r"
   },
   "hotkeys": {
     "toggle": "ctrl+alt+v",
     "quit": "ctrl+alt+backspace"
   },
   "window_check": true,
-  "layout_preset": "default",
-  "version": "1.0.2"
+  "version": "1.0.3"
 }
 ```
 
-* Set a key's value to `null` to disable remapping for that key.
-* `mode`: `"nogui"` for console, `"gui"` for PyQt6 window.
-* `window_check` enables/disables Deltarune window detection warnings.
-* `layout_preset`: `"default"` (R->C), `"classic"` (no R), `"full"` (R->C pass-through).
+* `targets` maps each game action to the physical key you press.
+* Set a source to `null` to disable that action.
 
 ### Installation & Launch
 
-1. Install the required dependency (only once):
+1. Install dependency:
    ```bash
    pip install keyboard
    ```
-2. Optional: for window detection, install `pywin32`:
+2. Optional (window detection):
    ```bash
    pip install pywin32
    ```
-3. Optional: for GUI mode, install `PyQt6`:
+3. Optional (GUI mode):
    ```bash
    pip install PyQt6
    ```
-4. Run the provided `.bat` file **as Administrator** (required for Windows to capture and emulate system-level keyboard inputs safely).
-
-### Building to EXE
-
-Use `build.bat` to compile to a standalone EXE:
-```bash
-build.bat
-```
-The EXE will be in the `dist/` folder.
+4. Run **as Administrator**.
 
 ### Safety
 
-* The script hooks ONLY the keys listed in your config — each via its own `keyboard.hook_key()`. Nothing else is hooked.
-* `Alt+Tab`, `Win`, `Esc`, `F-keys`, `Ctrl+Shift+Esc` etc. cannot be blocked by this script.
-* `Ctrl+Alt+Delete` on Windows ALWAYS works (Secure Attention Sequence).
-* `STOP_REMAP.bat` — double-click to instantly kill the script via taskkill.
+* Hooks ONLY the keys in your config. Nothing else is blocked.
+* `Ctrl+Alt+Delete` always works (OS-level).
+* `STOP_REMAP.bat` — double-click to kill the process instantly.
 
 ---
 
 ## 🇷🇺 Русская версия
 
-Скрипт для изменения раскладки управления в Deltarune от FoxVuk. Переносит стрелки на WASD и подготавливает удобную среду для запуска.
+Скрипт для изменения раскладки управления в Deltarune от FoxVuk. Полная кастомизация привязок клавиш с GUI и консольным режимами.
 
-### О раскладке
+### Как это работает
 
-Почему R -> C? Потому что R рядом с E на клавиатуре — это ближайшая удобная клавиша для меню звонка. Идеальная ли это раскладка? Честно, нет. Но работает, находится рядом, и после нескольких попыток это то, что осталось. Любую привязку можно поменять в `preferences.json` или переключать пресеты клавишей **N** прямо в игре.
+Игра получает фиксированные целевые клавиши: **стрелки, Z, X, C**. Вы выбираете какие физические клавиши их активируют. По умолчанию: W A S D Q E R — но каждую можно поменять прямо в программе.
 
 ### Возможности
 
-* **WASD -> Стрелки** (Вверх / Влево / Вниз / Вправо)
-* **Q -> Z** (Подтверждение / Действие)
-* **E -> X** (Отмена / Бег)
-* **R -> C** (Меню звонка — R рядом с E)
-* **Поддержка диагоналей**: Корректно обрабатывает любые одновременные нажатия без залипания клавиш.
-* **Пользовательские привязки клавиш**: Можно перенаправить любую клавишу на любую другую, или отключить перенаправление для отдельных клавиш.
-* **Пресеты раскладок**: Нажмите **N** для переключения (Стандартная, Классическая, Полная). Можно менять в любой момент.
-* **Проверка окна**: Предупреждает, если окно Deltarune не найдено или не активно.
-* **GUI и NonGUI режимы**: Консольный интерфейс по умолчанию, или опциональное окно PyQt6.
+* **Полная кастомизация**: Переназначьте любую клавишу на любое действие (Вверх/Вниз/Влево/Вправо/Z/X/C) — прямо в программе, не только в JSON.
+* **GUI режим**: Окно PyQt6 с кнопками Rebind — нажмите, нажмите клавишу, готово.
+* **NonGUI режим**: Консоль — нажмите 1-7 для выбора действия, затем нажмите нужную клавишу.
+* **Поддержка диагоналей**: Одновременные нажатия работают идеально.
+* **Проверка окна**: Предупреждает, если окно Deltarune не найдено.
 * **Горячие клавиши**:
-  * `Ctrl + Alt + V` — Включить / Выключить ремап
-  * `Ctrl + Alt + Backspace` — Быстрый выход из программы
-* **Двуязычный интерфейс**: Английский и русский, выбор при первом запуске.
-* **Сохранение настроек**: Все настройки сохраняются в `preferences.json`.
-* **Автоматическая миграция**: Настройки с v1.0.0/v1.0.1 автоматически мигрируют на v1.0.2.
+  * `Ctrl + Alt + V` — Включить/выключить ремап
+  * `Ctrl + Alt + Backspace` — Быстрый выход
+* **Двуязычный интерфейс**: Английский и русский.
+* **Сохранение настроек**: Все привязки в `preferences.json`.
+* **Автоматическая миграция**: Настройки с v1.0.0-v1.0.2 конвертируются.
 
 ### Конфигурация (preferences.json)
-
-Создаётся автоматически при первом запуске. Можно редактировать вручную или перенастроить интерактивно.
 
 ```json
 {
   "language": "ru",
   "mode": "nogui",
-  "remap": {
-    "w": "up",
-    "a": "left",
-    "s": "down",
-    "d": "right",
-    "q": "z",
-    "e": "x",
-    "r": "c"
+  "targets": {
+    "up": "w",
+    "down": "s",
+    "left": "a",
+    "right": "d",
+    "z": "q",
+    "x": "e",
+    "c": "r"
   },
   "hotkeys": {
     "toggle": "ctrl+alt+v",
     "quit": "ctrl+alt+backspace"
   },
   "window_check": true,
-  "layout_preset": "default",
-  "version": "1.0.2"
+  "version": "1.0.3"
 }
 ```
 
-* Установите значение клавиши в `null` чтобы отключить перенаправление для неё.
-* `mode`: `"nogui"` для консоли, `"gui"` для окна PyQt6.
-* `window_check` включает/отключает предупреждения о окне Deltarune.
-* `layout_preset`: `"default"` (R->C), `"classic"` (без R), `"full"` (R->C проходит).
+* `targets` связывает каждое действие с клавишей, которую вы нажимаете.
+* Установите значение в `null` чтобы отключить действие.
 
 ### Установка и запуск
 
-1. Установите необходимую библиотеку (один раз):
+1. Установите зависимость:
    ```bash
    pip install keyboard
    ```
-2. Опционально: для проверки окна установите `pywin32`:
+2. Опционально (проверка окна):
    ```bash
    pip install pywin32
    ```
-3. Опционально: для GUI режима установите `PyQt6`:
+3. Опционально (GUI режим):
    ```bash
    pip install PyQt6
    ```
-4. Запустите `.bat` файл **от имени администратора** (это обязательно, чтобы Windows разрешила перехватывать и эмулировать нажатия клавиш на системном уровне).
-
-### Сборка в EXE
-
-Используйте `build.bat` для компиляции в автономный EXE:
-```bash
-build.bat
-```
-EXE будет в папке `dist/`.
+4. Запустите **от имени администратора**.
 
 ### Безопасность
 
-* Скрипт перехватывает ТОЛЬКО клавиши из вашего конфига — каждую через отдельный `keyboard.hook_key()`. Больше ничего не хукается.
-* `Alt+Tab`, `Win`, `Esc`, `F-клавиши`, `Ctrl+Shift+Esc` и т.д. не могут быть заблокированы этим скриптом.
-* `Ctrl+Alt+Delete` на Windows ВСЕГДА работает (Secure Attention Sequence).
-* `STOP_REMAP.bat` — двойной клик мгновенно убивает процесс скрипта через taskkill.
+* Перехватывает ТОЛЬКО клавиши из вашего конфига. Ничего больше не блокируется.
+* `Ctrl+Alt+Delete` всегда работает (на уровне ОС).
+* `STOP_REMAP.bat` — двойной клик мгновенно убивает процесс.
