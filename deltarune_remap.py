@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 ================================================================
- Deltarune Key Remapper v1.0.3
+ Deltarune Key Remapper v1.0.5
 ================================================================
+
+GUI-only key remapper with multi-profile support.
 
 Target keys (what the game receives):
     Up / Left / Down / Right  —  movement
@@ -10,18 +12,12 @@ Target keys (what the game receives):
     X                         —  cancel / run
     C                         —  phone / call menu
 
-Source keys (what you press) — fully customizable:
-    Default: W A S D Q E R
+Source keys (what you press) — fully customizable per profile.
 
-Hotkeys:
+Hotkeys (global):
     Ctrl+Alt+V          — toggle remap on/off
     Ctrl+Alt+Backspace  — quit the program
 
-----------------------------------------------------------------
-SAFETY: hooks ONLY the keys in your config. Nothing else.
-----------------------------------------------------------------
-First run: language (EN/RU), mode (GUI/NonGUI), key binding setup.
-All settings saved to preferences.json.
 ================================================================
 """
 
@@ -30,6 +26,7 @@ import json
 import os
 import sys
 import time
+from datetime import datetime
 
 try:
     import keyboard
@@ -44,217 +41,35 @@ try:
 except ImportError:
     HAS_WIN32 = False
 
+try:
+    from PyQt6.QtWidgets import (
+        QApplication, QMainWindow, QLabel, QVBoxLayout,
+        QHBoxLayout, QWidget, QPushButton, QFrame, QComboBox,
+        QFileDialog, QMessageBox, QLineEdit, QScrollArea,
+        QGroupBox, QSizePolicy
+    )
+    from PyQt6.QtCore import Qt, QTimer, QSize
+    from PyQt6.QtGui import QPalette, QColor, QFont, QIcon, QPainter, QPen, QBrush, QPixmap
+    HAS_PYQT = True
+except ImportError:
+    HAS_PYQT = False
+
 
 # ================================================================
-# Paths
+# Constants
 # ================================================================
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROFILES_FILE = os.path.join(SCRIPT_DIR, "profiles.json")
 PREFERENCES_FILE = os.path.join(SCRIPT_DIR, "preferences.json")
 
-CURRENT_VERSION = "1.0.3"
+CURRENT_VERSION = "1.0.5"
 UPDATE_URL = "https://raw.githubusercontent.com/FoxVukOff/deltarune-foxvuk-keybinds/refs/heads/main/version.txt"
 REPO_URL = "https://github.com/FoxVukOff/deltarune-foxvuk-keybinds"
 
+TARGET_ORDER = ["up", "down", "left", "right", "z", "x", "c"]
 
-# ================================================================
-# Update check
-# ================================================================
-
-def parse_version(v: str) -> tuple[int, int, int]:
-    """Parse 'v1.0.3' -> (1, 0, 3)."""
-    v = v.strip().lstrip("v")
-    parts = v.split(".")
-    try:
-        return (int(parts[0]), int(parts[1]), int(parts[2]))
-    except (IndexError, ValueError):
-        return (0, 0, 0)
-
-
-def check_for_updates(lang: str) -> bool:
-    """Check for updates from GitHub. Returns False if update is mandatory and user must quit."""
-    t = LANG[lang]
-    try:
-        import urllib.request
-        # CDN cache busting: add random timestamp
-        bust_url = f"{UPDATE_URL}?_t={int(time.time() * 1000)}"
-        req = urllib.request.Request(bust_url, headers={"Cache-Control": "no-cache", "Pragma": "no-cache"})
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            raw = resp.read().decode("utf-8").strip()
-
-        # Format: v0.0.0:imp  or  v0.0.0:notimp  or  v0.0.0:ignore
-        if ":" not in raw:
-            return True
-
-        ver_str, importance = raw.split(":", 1)
-        ver_str = ver_str.strip()
-        importance = importance.strip().lower()
-
-        remote_ver = parse_version(ver_str)
-        local_ver = parse_version(CURRENT_VERSION)
-
-        if remote_ver <= local_ver:
-            return True  # No update or same version
-
-        # Update detected
-        ver_display = ver_str if ver_str.startswith("v") else f"v{ver_str}"
-
-        if importance == "ignore":
-            # Just note it, keep working
-            print(f"  [Update] Note: {ver_display} exists (current: v{CURRENT_VERSION}). Ignored.")
-            print()
-            return True
-
-        elif importance == "imp":
-            # Mandatory — block until updated
-            print()
-            print("  " + "=" * 50)
-            print(f"  IMPORTANT UPDATE: {ver_display}")
-            print(f"  Current version: v{CURRENT_VERSION}")
-            print()
-            print(f"  This update is required to continue.")
-            print(f"  Download: {REPO_URL}")
-            print("  " + "=" * 50)
-            print()
-            print("  Program will NOT work without this update.")
-            print("  Press Enter to exit...")
-            input()
-            return False
-
-        else:
-            # notimp — warn but allow
-            print()
-            print("  " + "-" * 50)
-            print(f"  Update available: {ver_display}")
-            print(f"  Current version: v{CURRENT_VERSION}")
-            print(f"  Download: {REPO_URL}")
-            print("  " + "-" * 50)
-            print("  You can continue, but consider updating.")
-            print()
-            return True
-
-    except Exception:
-        # Network error — don't block, just skip
-        return True
-
-
-# ================================================================
-# Migration: v1.0.0-v1.0.2 -> v1.0.3
-# ================================================================
-
-def migrate_preferences(data: dict) -> dict:
-    """Migrate old preferences to v1.0.3 format.
-    v1.0.3 uses source->target mapping where targets are fixed
-    (up/down/left/right/z/x/c) and sources are customizable."""
-    old_remap = data.get("remap", {})
-
-    # Build new format: target -> source
-    new_targets = {
-        "up": "w",
-        "down": "s",
-        "left": "a",
-        "right": "d",
-        "z": "q",
-        "x": "e",
-        "c": "r",
-    }
-
-    # Try to preserve old mappings
-    # old format was: source -> target (e.g. "w": "up")
-    for source, target in old_remap.items():
-        if target in new_targets and source not in new_targets.values():
-            new_targets[target] = source
-
-    data["targets"] = new_targets
-    data.pop("remap", None)
-    data.pop("layout_preset", None)
-    data["version"] = "1.0.3"
-    return data
-
-
-# ================================================================
-# Localizations
-# ================================================================
-
-LANG = {
-    "en": {
-        "banner_title": "Deltarune Key Remapper v1.0.3",
-        "banner_target": "Target (game receives):",
-        "banner_toggle": "{hotkey}  —  toggle remap on/off",
-        "banner_quit": "{hotkey}  —  quit the program",
-        "banner_console_quit": "Ctrl+C in this window — fallback quit",
-        "banner_safety": "If something goes wrong — Ctrl+Alt+Backspace kills the process.",
-        "banner_rebind": "Press the number key (1-7) to rebind that action.",
-        "banner_custom": "Fully customizable: change any source key to your preference.",
-        "admin_warning": "WARNING: NOT running as Administrator. Keyboard hook may not work.",
-        "ready": "Ready. Remap active, switch to the game.",
-        "remap_on": "Remap: ON",
-        "remap_off": "Remap: OFF",
-        "quit_msg": "Ctrl+Alt+Backspace — exiting...",
-        "ctrl_c_msg": "Ctrl+C received, shutting down...",
-        "hook_error": "Failed to install keyboard hook: {err}",
-        "hook_hint": "Make sure the script is running as Administrator.",
-        "key_error": "Error handling '{key}': {err}",
-        "migrated": "Settings migrated to v1.0.3 format.",
-        "rebind_prompt": "Press a key to bind to {target} (or ESC to keep '{current}'): ",
-        "rebound": "{target} <- {key}",
-        "kept": "{target} kept as {key}",
-        "window_not_found": "WARNING: Deltarune window not found!",
-        "window_not_focused": "WARNING: Deltarune is not the active window.",
-        "lang_prompt": "Select language / Выберите язык:",
-        "lang_saved": "Language saved.",
-        "mode_prompt": "Select interface mode:",
-        "mode_nogui": "1) NonGUI (console)",
-        "mode_gui": "2) GUI (PyQt6 window)",
-        "mode_saved": "Mode saved.",
-        "mode_gui_missing": "PyQt6 not installed. Install with: pip install PyQt6",
-        "config_saved": "Configuration saved.",
-        "bindings_title": "Current bindings:",
-        "press_num": "Press 1-7 to rebind, S to save & start, Q to quit:",
-    },
-    "ru": {
-        "banner_title": "Ремап клавиш для Deltarune v1.0.3",
-        "banner_target": "Цель (игра получает):",
-        "banner_toggle": "{hotkey}  —  включить/выключить ремап",
-        "banner_quit": "{hotkey}  —  выйти из программы",
-        "banner_console_quit": "Ctrl+C в этом окне — запасной способ выйти",
-        "banner_safety": "Если что-то не так — Ctrl+Alt+Backspace убивает процесс.",
-        "banner_rebind": "Нажмите цифру (1-7) чтобы переназначить клавишу.",
-        "banner_custom": "Полная кастомизация: меняйте любую клавишу под себя.",
-        "admin_warning": "ВНИМАНИЕ: не от администратора. Хук может не работать.",
-        "ready": "Готово. Ремап активен, можно переключаться в игру.",
-        "remap_on": "[Ремап] ВКЛЮЧЁН",
-        "remap_off": "[Ремап] ВЫКЛЮЧЕН",
-        "quit_msg": "Ctrl+Alt+Backspace — выхожу...",
-        "ctrl_c_msg": "\nПолучен Ctrl+C, завершаюсь...",
-        "hook_error": "Не удалось установить хук: {err}",
-        "hook_hint": "Запустите от имени администратора.",
-        "key_error": "Ошибка '{key}': {err}",
-        "migrated": "Настройки мигрированы на v1.0.3.",
-        "rebind_prompt": "Нажмите клавишу для {target} (ESC чтобы оставить '{current}'): ",
-        "rebound": "{target} <- {key}",
-        "kept": "{target} осталась {key}",
-        "window_not_found": "ВНИМАНИЕ: Окно Deltarune не найдено!",
-        "window_not_focused": "ВНИМАНИЕ: Deltarune не активно.",
-        "lang_prompt": "Select language / Выберите язык:",
-        "lang_saved": "Язык сохранён.",
-        "mode_prompt": "Выберите режим:",
-        "mode_nogui": "1) NonGUI (консоль)",
-        "mode_gui": "2) GUI (окно PyQt6)",
-        "mode_saved": "Режим сохранён.",
-        "mode_gui_missing": "PyQt6 не установлен. Установите: pip install PyQt6",
-        "config_saved": "Настройки сохранены.",
-        "bindings_title": "Текущие привязки:",
-        "press_num": "Нажмите 1-7 для переназначения, S — сохранить и старт, Q — выход:",
-    },
-}
-
-
-# ================================================================
-# Default targets -> source keys
-# ================================================================
-
-DEFAULT_TARGETS = {
+DEFAULT_PROFILE_TARGETS = {
     "up": "w",
     "down": "s",
     "left": "a",
@@ -264,18 +79,17 @@ DEFAULT_TARGETS = {
     "c": "r",
 }
 
-TARGET_ORDER = ["up", "down", "left", "right", "z", "x", "c"]
-
 DEFAULT_CONFIG = {
     "language": None,
-    "mode": None,
-    "targets": dict(DEFAULT_TARGETS),
+    "active_profile": "Default",
     "hotkeys": {
         "toggle": "ctrl+alt+v",
         "quit": "ctrl+alt+backspace",
     },
     "window_check": True,
-    "version": "1.0.3",
+    "logs_enabled": True,
+    "log_level": "info",
+    "version": "1.0.5",
 }
 
 VALID_KEYS = {
@@ -292,149 +106,375 @@ VALID_KEYS = {
 
 
 # ================================================================
+# Logging
+# ================================================================
+
+LOG_LEVELS = {"debug": 0, "info": 1, "warn": 2, "error": 3}
+_log_config = {"enabled": True, "level": "info"}
+
+
+def log(msg: str, level: str = "info"):
+    if not _log_config["enabled"]:
+        return
+    if LOG_LEVELS.get(level, 1) < LOG_LEVELS.get(_log_config["level"], 1):
+        return
+    ts = datetime.now().strftime("%H:%M:%S")
+    print(f"  [{ts}] [{level.upper()}] {msg}")
+
+
+def set_logging(enabled: bool, level: str = "info"):
+    _log_config["enabled"] = enabled
+    _log_config["level"] = level
+
+
+# ================================================================
+# Migration
+# ================================================================
+
+def migrate_preferences(data: dict) -> dict:
+    """Migrate old v1.0.0-v1.0.4 preferences to v1.0.5 format."""
+    old_ver = data.get("version", "1.0.0")
+
+    if old_ver in ("1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", None):
+        # Old format had "targets" or "remap"
+        targets = data.get("targets", data.get("remap", {}))
+
+        # Convert old source->target to target->source if needed
+        if targets:
+            # Check if it's old format (source -> target like "w": "up")
+            if "w" in targets and targets["w"] == "up":
+                # Old format: source -> target, invert it
+                new_targets = {}
+                for src, tgt in targets.items():
+                    if tgt in TARGET_ORDER:
+                        new_targets[tgt] = src
+                targets = new_targets
+
+            # Ensure all targets exist
+            for t in TARGET_ORDER:
+                if t not in targets:
+                    targets[t] = DEFAULT_PROFILE_TARGETS.get(t, "unknown")
+
+        data["targets"] = targets
+        data.pop("remap", None)
+        data.pop("layout_preset", None)
+
+    data["version"] = "1.0.5"
+    return data
+
+
+def migrate_to_profiles(config: dict) -> dict:
+    """Convert old single-config to multi-profile format."""
+    profiles = load_profiles()
+
+    # If profiles already exist and have data, don't overwrite
+    if profiles.get("profiles"):
+        return profiles
+
+    # Create Default profile from old config
+    targets = config.get("targets", dict(DEFAULT_PROFILE_TARGETS))
+    profiles["profiles"]["Default"] = {
+        "targets": dict(targets),
+        "created": datetime.now().isoformat(),
+        "modified": datetime.now().isoformat(),
+    }
+    profiles["active"] = config.get("active_profile", "Default")
+
+    save_profiles(profiles)
+    return profiles
+
+
+# ================================================================
+# Profiles management
+# ================================================================
+
+def load_profiles() -> dict:
+    """Load profiles from JSON. Returns structured data."""
+    default = {
+        "active": "Default",
+        "profiles": {
+            "Default": {
+                "targets": dict(DEFAULT_PROFILE_TARGETS),
+                "created": "2026-01-01T00:00:00",
+                "modified": "2026-01-01T00:00:00",
+            }
+        },
+    }
+
+    if os.path.exists(PROFILES_FILE):
+        try:
+            with open(PROFILES_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            # Validate structure
+            if "profiles" not in data or not isinstance(data["profiles"], dict):
+                log("Profiles file corrupted, using defaults", "warn")
+                return default
+
+            # Ensure Default exists and is correct
+            if "Default" not in data["profiles"]:
+                data["profiles"]["Default"] = default["profiles"]["Default"]
+            else:
+                # Default always reverts to hardcoded values
+                data["profiles"]["Default"]["targets"] = dict(DEFAULT_PROFILE_TARGETS)
+
+            # Validate each profile
+            for name, profile in list(data["profiles"].items()):
+                if "targets" not in profile or not isinstance(profile["targets"], dict):
+                    log(f"Profile '{name}' corrupted, removing", "warn")
+                    del data["profiles"][name]
+                    continue
+                # Ensure all targets exist
+                for t in TARGET_ORDER:
+                    if t not in profile["targets"]:
+                        profile["targets"][t] = DEFAULT_PROFILE_TARGETS.get(t, "unknown")
+
+            if "active" not in data or data["active"] not in data["profiles"]:
+                data["active"] = "Default"
+
+            return data
+
+        except (json.JSONDecodeError, IOError) as e:
+            log(f"Failed to load profiles: {e}, using defaults", "warn")
+            return default
+
+    return default
+
+
+def save_profiles(profiles: dict):
+    """Save profiles to JSON."""
+    with open(PROFILES_FILE, "w", encoding="utf-8") as f:
+        json.dump(profiles, f, indent=2, ensure_ascii=False)
+    log(f"Profiles saved ({len(profiles['profiles'])} profiles)")
+
+
+def create_profile(profiles: dict, name: str) -> bool:
+    """Create a new profile with Default settings. Returns True if created."""
+    if name in profiles["profiles"]:
+        return False
+    if not name.strip():
+        return False
+
+    profiles["profiles"][name] = {
+        "targets": dict(DEFAULT_PROFILE_TARGETS),
+        "created": datetime.now().isoformat(),
+        "modified": datetime.now().isoformat(),
+    }
+    save_profiles(profiles)
+    log(f"Profile created: {name}")
+    return True
+
+
+def delete_profile(profiles: dict, name: str) -> bool:
+    """Delete a profile. Cannot delete Default. Returns True if deleted."""
+    if name == "Default":
+        return False
+    if name not in profiles["profiles"]:
+        return False
+
+    del profiles["profiles"][name]
+    if profiles["active"] == name:
+        profiles["active"] = "Default"
+    save_profiles(profiles)
+    log(f"Profile deleted: {name}")
+    return True
+
+
+def rename_profile(profiles: dict, old_name: str, new_name: str) -> bool:
+    """Rename a profile. Cannot rename Default. Returns True if renamed."""
+    if old_name == "Default":
+        return False
+    if new_name == "Default":
+        return False
+    if old_name not in profiles["profiles"]:
+        return False
+    if new_name in profiles["profiles"]:
+        return False
+    if not new_name.strip():
+        return False
+
+    profiles["profiles"][new_name] = profiles["profiles"].pop(old_name)
+    profiles["profiles"][new_name]["modified"] = datetime.now().isoformat()
+    if profiles["active"] == old_name:
+        profiles["active"] = new_name
+    save_profiles(profiles)
+    log(f"Profile renamed: {old_name} -> {new_name}")
+    return True
+
+
+def update_profile_targets(profiles: dict, name: str, targets: dict):
+    """Update targets for a profile."""
+    if name in profiles["profiles"]:
+        profiles["profiles"][name]["targets"] = dict(targets)
+        profiles["profiles"][name]["modified"] = datetime.now().isoformat()
+        save_profiles(profiles)
+        log(f"Profile updated: {name}")
+
+
+def export_profile(profiles: dict, name: str, filepath: str) -> bool:
+    """Export a profile to a JSON file."""
+    if name not in profiles["profiles"]:
+        return False
+    try:
+        data = {
+            "profile_name": name,
+            "targets": profiles["profiles"][name]["targets"],
+            "exported": datetime.now().isoformat(),
+            "version": CURRENT_VERSION,
+        }
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        log(f"Profile exported: {name} -> {filepath}")
+        return True
+    except Exception as e:
+        log(f"Export failed: {e}", "error")
+        return False
+
+
+def import_profile(profiles: dict, filepath: str) -> str | None:
+    """Import a profile from a JSON file. Returns profile name or None."""
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        name = data.get("profile_name", "Imported")
+        targets = data.get("targets", {})
+
+        if not targets:
+            log("Import failed: no targets in file", "error")
+            return None
+
+        # Ensure all targets
+        for t in TARGET_ORDER:
+            if t not in targets:
+                targets[t] = DEFAULT_PROFILE_TARGETS.get(t, "unknown")
+
+        # Handle name collision
+        original_name = name
+        counter = 1
+        while name in profiles["profiles"]:
+            name = f"{original_name} ({counter})"
+            counter += 1
+
+        profiles["profiles"][name] = {
+            "targets": targets,
+            "created": datetime.now().isoformat(),
+            "modified": datetime.now().isoformat(),
+        }
+        save_profiles(profiles)
+        log(f"Profile imported: {name}")
+        return name
+
+    except Exception as e:
+        log(f"Import failed: {e}", "error")
+        return None
+
+
+# ================================================================
 # Preferences
 # ================================================================
 
-def load_preferences() -> tuple[dict, bool]:
-    was_migrated = False
+def load_preferences() -> dict:
     if os.path.exists(PREFERENCES_FILE):
         try:
             with open(PREFERENCES_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
+
+            # Migrate old format
             old_ver = data.get("version", "1.0.0")
-            if old_ver in ("1.0.0", "1.0.1", "1.0.2", None):
+            if old_ver in ("1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", None):
                 data = migrate_preferences(data)
-                was_migrated = True
+
             config = dict(DEFAULT_CONFIG)
             config.update(data)
-            if "targets" in data:
-                targets = dict(DEFAULT_TARGETS)
-                targets.update(data["targets"])
-                config["targets"] = targets
             if "hotkeys" in data:
                 hotkeys = dict(DEFAULT_CONFIG["hotkeys"])
                 hotkeys.update(data["hotkeys"])
                 config["hotkeys"] = hotkeys
-            return config, was_migrated
+            return config
+
         except (json.JSONDecodeError, IOError):
             pass
-    return dict(DEFAULT_CONFIG), was_migrated
+    return dict(DEFAULT_CONFIG)
 
 
 def save_preferences(config: dict):
-    config["version"] = "1.0.3"
+    config["version"] = "1.0.5"
     with open(PREFERENCES_FILE, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
 
 
 # ================================================================
-# Language selection
+# Language selection (console, first run only)
 # ================================================================
 
 def select_language(config: dict) -> str:
     if config.get("language") in ("en", "ru"):
         return config["language"]
-    print("=" * 55)
+    print("=" * 50)
     print("  Select language / Выберите язык:")
-    print("=" * 55)
+    print("=" * 50)
     print("  1) English")
     print("  2) Русский")
-    print("=" * 55)
+    print("=" * 50)
     while True:
-        choice = input("  Your choice (1 or 2): ").strip()
+        choice = input("  > ").strip()
         if choice == "1":
             lang = "en"; break
         elif choice == "2":
             lang = "ru"; break
     config["language"] = lang
     save_preferences(config)
-    print(f"  {LANG[lang]['lang_saved']}\n")
+    print(f"  Language saved.\n")
     return lang
 
 
 # ================================================================
-# Mode selection
+# Update check
 # ================================================================
 
-def select_mode(config: dict, lang: str) -> str:
-    if config.get("mode") in ("gui", "nogui"):
-        return config["mode"]
-    t = LANG[lang]
-    print("=" * 55)
-    print(f"  {t['mode_prompt']}")
-    print("=" * 55)
-    print(f"  {t['mode_nogui']}")
-    print(f"  {t['mode_gui']}")
-    print("=" * 55)
-    while True:
-        choice = input("  > ").strip()
-        if choice == "1":
-            mode = "nogui"; break
-        elif choice == "2":
-            try:
-                import PyQt6  # noqa: F401
-                mode = "gui"; break
-            except ImportError:
-                print(f"  {t['mode_gui_missing']}")
-    config["mode"] = mode
-    save_preferences(config)
-    print(f"  {t['mode_saved']}\n")
-    return mode
+def parse_version(v: str) -> tuple[int, int, int]:
+    v = v.strip().lstrip("v")
+    parts = v.split(".")
+    try:
+        return (int(parts[0]), int(parts[1]), int(parts[2]))
+    except (IndexError, ValueError):
+        return (0, 0, 0)
 
 
-# ================================================================
-# NonGUI rebinding
-# ================================================================
+def check_for_updates() -> tuple[bool, str]:
+    """Check for updates. Returns (can_continue, message)."""
+    try:
+        import urllib.request
+        bust_url = f"{UPDATE_URL}?_t={int(time.time() * 1000)}"
+        req = urllib.request.Request(bust_url, headers={"Cache-Control": "no-cache", "Pragma": "no-cache"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            raw = resp.read().decode("utf-8").strip()
 
-def listen_for_key() -> str | None:
-    """Block until a key is pressed, return its name. ESC returns None."""
-    event = keyboard.read_event(suppress=True)
-    if event.event_type == keyboard.KEY_DOWN:
-        if event.name == "esc":
-            return None
-        return event.name
-    return None
+        if ":" not in raw:
+            return True, ""
 
+        ver_str, importance = raw.split(":", 1)
+        ver_str = ver_str.strip()
+        importance = importance.strip().lower()
 
-def rebind_interactive(config: dict, lang: str) -> dict:
-    """NonGUI interactive key rebinding."""
-    t = LANG[lang]
-    targets = config["targets"]
+        remote_ver = parse_version(ver_str)
+        local_ver = parse_version(CURRENT_VERSION)
 
-    while True:
-        print()
-        print(f"  {t['bindings_title']}")
-        print("  " + "-" * 40)
-        for i, target in enumerate(TARGET_ORDER, 1):
-            src = targets.get(target, "?")
-            print(f"    {i}) {target.upper():>6}  <-  {src}")
-        print("  " + "-" * 40)
-        print(f"  {t['press_num']}")
+        if remote_ver <= local_ver:
+            return True, ""
 
-        choice = input("  > ").strip().lower()
+        ver_display = ver_str if ver_str.startswith("v") else f"v{ver_str}"
 
-        if choice == "s":
-            save_preferences(config)
-            print(f"  {t['config_saved']}")
-            return config
-        elif choice == "q":
-            sys.exit(0)
-        elif choice.isdigit():
-            idx = int(choice) - 1
-            if 0 <= idx < len(TARGET_ORDER):
-                target = TARGET_ORDER[idx]
-                current = targets.get(target, "?")
-                print(f"  {t['rebind_prompt'].format(target=target.upper(), current=current)}", end="", flush=True)
-                key = listen_for_key()
-                if key is None:
-                    print(f"  {t['kept'].format(target=target.upper(), key=current)}")
-                elif key in VALID_KEYS:
-                    targets[target] = key
-                    print(f"  {t['rebound'].format(target=target.upper(), key=key)}")
-                else:
-                    print(f"  Invalid key: {key}")
-            else:
-                print("  Invalid number")
+        if importance == "ignore":
+            return True, f"Note: {ver_display} exists (current: v{CURRENT_VERSION}). Ignored."
+        elif importance == "imp":
+            return False, f"IMPORTANT UPDATE: {ver_display}\nThis update is required.\nDownload: {REPO_URL}"
+        else:
+            return True, f"Update available: {ver_display}\nCurrent: v{CURRENT_VERSION}\nDownload: {REPO_URL}"
+
+    except Exception:
+        return True, ""
 
 
 # ================================================================
@@ -466,11 +506,11 @@ def is_deltarune_focused() -> bool:
 # ================================================================
 
 class RemapState:
-    def __init__(self, config, lang):
+    def __init__(self, hotkeys: dict):
         self.enabled = True
         self.running = True
         self.pressed = set()
-        self.t = LANG[lang]
+        self.hotkeys = hotkeys
 
     def release_all(self):
         for k in list(self.pressed):
@@ -480,12 +520,12 @@ class RemapState:
 
     def toggle(self):
         self.enabled = not self.enabled
-        print(self.t["remap_on"] if self.enabled else self.t["remap_off"])
+        log(f"Remap {'ON' if self.enabled else 'OFF'}")
         if not self.enabled:
             self.release_all()
 
     def request_quit(self):
-        print(self.t["quit_msg"])
+        log("Quit requested")
         self.running = False
         self.release_all()
 
@@ -505,30 +545,29 @@ def make_handler(state, target_key):
                     keyboard.release(target_key)
             return False
         except Exception as exc:
-            print(state.t["key_error"].format(key=target_key, err=repr(exc)))
+            log(f"Error handling {target_key}: {exc}", "error")
             return True
     return handler
 
 
-def install_hooks(state, config):
-    targets = config["targets"]
+def install_hooks(state, targets: dict):
     try:
         for target, source in targets.items():
             if source is not None:
                 keyboard.hook_key(source, make_handler(state, target), suppress=True)
-        keyboard.add_hotkey(config["hotkeys"]["toggle"], state.toggle, suppress=True)
-        keyboard.add_hotkey(config["hotkeys"]["quit"], state.request_quit, suppress=True)
+        keyboard.add_hotkey(state.hotkeys["toggle"], state.toggle, suppress=True)
+        keyboard.add_hotkey(state.hotkeys["quit"], state.request_quit, suppress=True)
+        log(f"Hooks installed: {len([v for v in targets.values() if v])} keys")
     except Exception as exc:
-        print(state.t["hook_error"].format(err=repr(exc)))
-        print(state.t["hook_hint"])
+        log(f"Failed to install hooks: {exc}", "error")
         sys.exit(1)
 
 
-def reinstall_hooks(state, config):
+def reinstall_hooks(state, targets: dict):
     try: keyboard.unhook_all()
     except: pass
     state.pressed.clear()
-    install_hooks(state, config)
+    install_hooks(state, targets)
 
 
 # ================================================================
@@ -545,208 +584,522 @@ def set_console_title(title):
 
 
 # ================================================================
-# GUI (PyQt6)
+# Shield icon (drawn, not emoji)
 # ================================================================
 
-def run_gui(config, lang):
-    try:
-        from PyQt6.QtWidgets import (
-            QApplication, QMainWindow, QLabel, QVBoxLayout,
-            QHBoxLayout, QWidget, QPushButton, QFrame
-        )
-        from PyQt6.QtCore import Qt, QTimer
-        from PyQt6.QtGui import QPalette, QColor
-    except ImportError:
-        print(LANG[lang]["mode_gui_missing"])
-        sys.exit(1)
+def create_shield_icon(color: QColor = QColor(66, 133, 244)) -> QIcon:
+    """Create a small shield icon programmatically."""
+    size = 16
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.GlobalColor.transparent)
 
-    state = RemapState(config, lang)
-    install_hooks(state, config)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-    app = QApplication(sys.argv)
-    app.setStyle("Fusion")
+    # Shield path
+    painter.setPen(QPen(color, 1.5))
+    painter.setBrush(QBrush(color))
 
-    # Dark palette
-    p = QPalette()
-    p.setColor(QPalette.ColorRole.Window, QColor(25, 25, 25))
-    p.setColor(QPalette.ColorRole.WindowText, QColor(220, 220, 220))
-    p.setColor(QPalette.ColorRole.Base, QColor(35, 35, 35))
-    p.setColor(QPalette.ColorRole.Text, QColor(220, 220, 220))
-    p.setColor(QPalette.ColorRole.Button, QColor(45, 45, 45))
-    p.setColor(QPalette.ColorRole.ButtonText, QColor(220, 220, 220))
-    p.setColor(QPalette.ColorRole.Highlight, QColor(70, 110, 170))
-    app.setPalette(p)
+    from PyQt6.QtGui import QPolygonF
+    from PyQt6.QtCore import QPointF
 
-    win = QMainWindow()
-    win.setWindowTitle("Deltarune Key Remapper v1.0.3")
-    win.setFixedSize(440, 480)
-    win.setStyleSheet("""
-        QMainWindow { background: #191919; }
-        QFrame#card {
-            background: #252525;
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 8px;
-        }
-        QLabel { color: #ddd; }
-        QPushButton {
-            background: #333; color: #ddd;
-            border: 1px solid #555; border-radius: 5px;
-            padding: 8px; font-size: 13px;
-        }
-        QPushButton:hover { background: #444; }
-    """)
+    shield = QPolygonF([
+        QPointF(8, 1),
+        QPointF(14, 3),
+        QPointF(14, 8),
+        QPointF(8, 14),
+        QPointF(2, 8),
+        QPointF(2, 3),
+    ])
+    painter.drawPolygon(shield)
+    painter.end()
 
-    central = QWidget()
-    win.setCentralWidget(central)
-    layout = QVBoxLayout(central)
-    layout.setSpacing(6)
+    return QIcon(pixmap)
 
-    # Status
-    status = QLabel("ACTIVE")
-    status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    status.setStyleSheet("font-size: 18px; font-weight: bold; color: #4caf50; padding: 4px;")
-    layout.addWidget(status)
 
-    # Binding rows
-    targets = config["targets"]
-    rows = []
+# ================================================================
+# GUI
+# ================================================================
 
-    for target in TARGET_ORDER:
-        card = QFrame()
-        card.setObjectName("card")
-        card.setFixedHeight(42)
-        row = QHBoxLayout(card)
-        row.setContentsMargins(12, 4, 12, 4)
+LANG_GUI = {
+    "en": {
+        "title": "Deltarune Key Remapper v1.0.5",
+        "profile": "Profile:",
+        "create": "Create",
+        "delete": "Delete",
+        "rename": "Rename",
+        "export": "Export",
+        "import": "Import",
+        "bindings": "Key Bindings",
+        "target": "Action",
+        "source": "Key",
+        "rebind": "Rebind",
+        "toggle": "Toggle",
+        "save": "Save",
+        "quit": "Quit",
+        "active": "ACTIVE",
+        "paused": "PAUSED",
+        "settings": "Settings",
+        "logs": "Logs:",
+        "enabled": "Enabled",
+        "level": "Level:",
+        "create_title": "New Profile",
+        "create_prompt": "Profile name:",
+        "delete_title": "Delete Profile",
+        "delete_confirm": "Delete profile '{name}'?",
+        "rename_title": "Rename Profile",
+        "rename_prompt": "New name:",
+        "cannot_delete_default": "Cannot delete Default profile.",
+        "cannot_rename_default": "Cannot rename Default profile.",
+        "profile_exists": "Profile '{name}' already exists.",
+        "profile_created": "Profile '{name}' created.",
+        "profile_deleted": "Profile '{name}' deleted.",
+        "profile_renamed": "Profile renamed to '{name}'.",
+        "profile_imported": "Profile '{name}' imported.",
+        "export_saved": "Profile exported to:\n{path}",
+        "import_file": "Select profile JSON file",
+        "invalid_import": "Invalid profile file.",
+        "save_done": "Settings saved.",
+        "update_title": "Update Available",
+        "update_required": "This update is required to continue.",
+        "update_optional": "You can continue, but consider updating.",
+        "update_download": "Download: {url}",
+        "rebind_prompt": "Press a key for {target}\n(or ESC to keep '{current}')",
+        "rebound": "{target} <- {key}",
+        "kept": "{target} kept as {key}",
+    },
+    "ru": {
+        "title": "Ремап клавиш для Deltarune v1.0.5",
+        "profile": "Профиль:",
+        "create": "Создать",
+        "delete": "Удалить",
+        "rename": "Переименовать",
+        "export": "Экспорт",
+        "import": "Импорт",
+        "bindings": "Привязки клавиш",
+        "target": "Действие",
+        "source": "Клавиша",
+        "rebind": "Изменить",
+        "toggle": "Переключить",
+        "save": "Сохранить",
+        "quit": "Выход",
+        "active": "АКТИВЕН",
+        "paused": "ПАУЗА",
+        "settings": "Настройки",
+        "logs": "Логи:",
+        "enabled": "Включены",
+        "level": "Уровень:",
+        "create_title": "Новый профиль",
+        "create_prompt": "Имя профиля:",
+        "delete_title": "Удалить профиль",
+        "delete_confirm": "Удалить профиль '{name}'?",
+        "rename_title": "Переименовать профиль",
+        "rename_prompt": "Новое имя:",
+        "cannot_delete_default": "Нельзя удалить профиль Default.",
+        "cannot_rename_default": "Нельзя переименовать профиль Default.",
+        "profile_exists": "Профиль '{name}' уже существует.",
+        "profile_created": "Профиль '{name}' создан.",
+        "profile_deleted": "Профиль '{name}' удалён.",
+        "profile_renamed": "Профиль переименован в '{name}'.",
+        "profile_imported": "Профиль '{name}' импортирован.",
+        "export_saved": "Профиль экспортирован в:\n{path}",
+        "import_file": "Выберите JSON-файл профиля",
+        "invalid_import": "Неверный файл профиля.",
+        "save_done": "Настройки сохранены.",
+        "update_title": "Доступно обновление",
+        "update_required": "Это обновление обязательно для работы.",
+        "update_optional": "Можно продолжить, но рекомендуется обновиться.",
+        "update_download": "Скачать: {url}",
+        "rebind_prompt": "Нажмите клавишу для {target}\n(ESC чтобы оставить '{current}')",
+        "rebound": "{target} <- {key}",
+        "kept": "{target} осталась {key}",
+    },
+}
 
-        lbl_target = QLabel(target.upper())
-        lbl_target.setStyleSheet("font-size: 16px; font-weight: bold; color: #64b5f6; min-width: 50px;")
-        row.addWidget(lbl_target)
 
-        arrow = QLabel("  <-  ")
-        arrow.setStyleSheet("font-size: 13px; color: #666;")
-        row.addWidget(arrow)
+class MainWindow(QMainWindow):
+    def __init__(self, config: dict, profiles: dict, lang: str):
+        super().__init__()
+        self.config = config
+        self.profiles = profiles
+        self.lang = lang
+        self.t = LANG_GUI[lang]
+        self.state = RemapState(config["hotkeys"])
+        self.rebinding = False
 
-        lbl_source = QLabel(targets.get(target, "?"))
-        lbl_source.setStyleSheet("font-size: 16px; font-weight: bold; color: #81c784; min-width: 50px;")
-        row.addWidget(lbl_source)
+        self.setWindowTitle(self.t["title"])
+        self.setFixedSize(480, 560)
+        self._apply_style()
+        self._build_ui()
+        self._load_profile()
+        self._install_hooks()
+        self._start_timer()
 
-        row.addStretch()
-
-        btn_rebind = QPushButton("Rebind")
-        btn_rebind.setFixedWidth(70)
-        btn_rebind.setStyleSheet("""
-            QPushButton { background: #1a5276; color: #aed6f1; border: none; border-radius: 4px; font-size: 11px; padding: 4px; }
-            QPushButton:hover { background: #2471a3; }
+    def _apply_style(self):
+        self.setStyleSheet("""
+            QMainWindow { background: #1a1a2e; }
+            QGroupBox {
+                font-size: 12px; font-weight: bold; color: #8888aa;
+                border: 1px solid #333355; border-radius: 6px;
+                margin-top: 10px; padding-top: 14px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin; left: 10px; padding: 0 5px;
+            }
+            QLabel { color: #ddd; }
+            QPushButton {
+                background: #252540; color: #ccc; border: 1px solid #444466;
+                border-radius: 4px; padding: 6px 12px; font-size: 12px;
+            }
+            QPushButton:hover { background: #333355; border-color: #6666aa; }
+            QPushButton:pressed { background: #444466; }
+            QPushButton#danger {
+                background: #552222; color: #ff8888; border-color: #884444;
+            }
+            QPushButton#danger:hover { background: #663333; }
+            QPushButton#primary {
+                background: #2255aa; color: #aaddff; border: none;
+            }
+            QPushButton#primary:hover { background: #3366cc; }
+            QComboBox {
+                background: #252540; color: #ddd; border: 1px solid #444466;
+                border-radius: 4px; padding: 4px 8px; font-size: 12px;
+            }
+            QComboBox::drop-down { border: none; }
+            QComboBox QAbstractItemView {
+                background: #252540; color: #ddd; selection-background-color: #333366;
+            }
+            QLineEdit {
+                background: #252540; color: #ddd; border: 1px solid #444466;
+                border-radius: 4px; padding: 4px 8px; font-size: 12px;
+            }
+            QScrollArea { border: none; background: transparent; }
         """)
 
-        def make_rebind(tgt, lbl, btn):
-            def on_click():
-                btn.setText("...")
-                btn.repaint()
-                # Listen for key
-                event = keyboard.read_event(suppress=True)
-                if event.event_type == keyboard.KEY_DOWN and event.name != "esc":
-                    targets[tgt] = event.name
-                    lbl.setText(event.name)
-                    config["targets"] = targets
-                    reinstall_hooks(state, config)
-                btn.setText("Rebind")
-            return on_click
+    def _build_ui(self):
+        central = QWidget()
+        self.setCentralWidget(central)
+        layout = QVBoxLayout(central)
+        layout.setSpacing(6)
+        layout.setContentsMargins(10, 10, 10, 10)
 
-        btn_rebind.clicked.connect(make_rebind(target, lbl_source, btn_rebind))
-        row.addWidget(btn_rebind)
+        # Status
+        self.status_label = QLabel(self.t["active"])
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #4caf50; padding: 4px;")
+        layout.addWidget(self.status_label)
 
-        layout.addWidget(card)
-        rows.append((lbl_source, btn_rebind))
+        # Profile selector row
+        profile_row = QHBoxLayout()
+        lbl = QLabel(self.t["profile"])
+        lbl.setStyleSheet("font-size: 12px; color: #888;")
+        profile_row.addWidget(lbl)
 
-    # Buttons
-    btn_row = QHBoxLayout()
+        self.profile_combo = QComboBox()
+        self.profile_combo.setMinimumWidth(150)
+        self.profile_combo.currentTextChanged.connect(self._on_profile_changed)
+        profile_row.addWidget(self.profile_combo, 1)
 
-    toggle_btn = QPushButton(f"Toggle ({config['hotkeys']['toggle'].upper()})")
-    toggle_btn.setMinimumHeight(36)
-    toggle_btn.setStyleSheet("""
-        QPushButton { background: #2e7d32; color: white; border: none; border-radius: 5px; font-size: 12px; }
-        QPushButton:hover { background: #388e3c; }
-    """)
-    toggle_btn.clicked.connect(state.toggle)
-    btn_row.addWidget(toggle_btn)
+        self.btn_create = QPushButton(self.t["create"])
+        self.btn_create.clicked.connect(self._create_profile)
+        profile_row.addWidget(self.btn_create)
 
-    save_btn = QPushButton("Save")
-    save_btn.setMinimumHeight(36)
-    save_btn.setStyleSheet("""
-        QPushButton { background: #1565c0; color: white; border: none; border-radius: 5px; font-size: 12px; }
-        QPushButton:hover { background: #1976d2; }
-    """)
-    def on_save():
-        config["targets"] = targets
-        save_preferences(config)
-    save_btn.clicked.connect(on_save)
-    btn_row.addWidget(save_btn)
+        self.btn_delete = QPushButton(self.t["delete"])
+        self.btn_delete.setObjectName("danger")
+        self.btn_delete.clicked.connect(self._delete_profile)
+        profile_row.addWidget(self.btn_delete)
 
-    quit_btn = QPushButton(f"Quit ({config['hotkeys']['quit'].upper()})")
-    quit_btn.setMinimumHeight(36)
-    quit_btn.setStyleSheet("""
-        QPushButton { background: #c62828; color: white; border: none; border-radius: 5px; font-size: 12px; }
-        QPushButton:hover { background: #d32f2f; }
-    """)
-    quit_btn.clicked.connect(state.request_quit)
-    btn_row.addWidget(quit_btn)
+        self.btn_rename = QPushButton(self.t["rename"])
+        self.btn_rename.clicked.connect(self._rename_profile)
+        profile_row.addWidget(self.btn_rename)
 
-    layout.addLayout(btn_row)
+        layout.addLayout(profile_row)
 
-    # Timer
-    def update():
-        if state.enabled:
-            status.setText("ACTIVE")
-            status.setStyleSheet("font-size: 18px; font-weight: bold; color: #4caf50; padding: 4px;")
+        # Import/Export row
+        ie_row = QHBoxLayout()
+        self.btn_export = QPushButton(self.t["export"])
+        self.btn_export.clicked.connect(self._export_profile)
+        ie_row.addWidget(self.btn_export)
+
+        self.btn_import = QPushButton(self.t["import"])
+        self.btn_import.clicked.connect(self._import_profile)
+        ie_row.addWidget(self.btn_import)
+        layout.addLayout(ie_row)
+
+        # Bindings group
+        bindings_group = QGroupBox(f"  {self.t['bindings']}  ")
+        bindings_layout = QVBoxLayout()
+        bindings_layout.setSpacing(2)
+
+        # Header
+        header = QHBoxLayout()
+        h_target = QLabel(f"  {self.t['target']}")
+        h_target.setStyleSheet("font-size: 11px; color: #666; font-weight: bold; min-width: 80px;")
+        h_source = QLabel(self.t["source"])
+        h_source.setStyleSheet("font-size: 11px; color: #666; font-weight: bold; min-width: 80px;")
+        header.addWidget(h_target)
+        header.addWidget(h_source)
+        header.addStretch()
+        bindings_layout.addLayout(header)
+
+        self.binding_rows = []
+        for target in TARGET_ORDER:
+            row = QHBoxLayout()
+            row.setSpacing(4)
+
+            lbl_target = QLabel(f"  {target.upper()}")
+            lbl_target.setStyleSheet("font-size: 14px; font-weight: bold; color: #64b5f6; min-width: 80px;")
+            row.addWidget(lbl_target)
+
+            lbl_source = QLabel("w")
+            lbl_source.setStyleSheet("font-size: 14px; font-weight: bold; color: #81c784; min-width: 80px;")
+            row.addWidget(lbl_source)
+
+            row.addStretch()
+
+            btn = QPushButton(self.t["rebind"])
+            btn.setFixedWidth(70)
+            btn.setStyleSheet("""
+                QPushButton { background: #1a3a5a; color: #88ccff; border: none; border-radius: 3px; font-size: 11px; padding: 3px; }
+                QPushButton:hover { background: #2a5a8a; }
+            """)
+            btn.clicked.connect(lambda _, t=target, l=lbl_source: self._start_rebind(t, l))
+            row.addWidget(btn)
+
+            bindings_layout.addLayout(row)
+            self.binding_rows.append((target, lbl_source, btn))
+
+        bindings_group.setLayout(bindings_layout)
+
+        scroll = QScrollArea()
+        scroll.setWidget(bindings_group)
+        scroll.setWidgetResizable(True)
+        scroll.setMaximumHeight(280)
+        layout.addWidget(scroll)
+
+        # Settings group
+        settings_group = QGroupBox(f"  {self.t['settings']}  ")
+        settings_layout = QHBoxLayout()
+
+        logs_lbl = QLabel(self.t["logs"])
+        logs_lbl.setStyleSheet("font-size: 11px; color: #888;")
+        settings_layout.addWidget(logs_lbl)
+
+        self.logs_check = QPushButton(self.t["enabled"] if self.config.get("logs_enabled", True) else "OFF")
+        self.logs_check.setCheckable(True)
+        self.logs_check.setChecked(self.config.get("logs_enabled", True))
+        self.logs_check.clicked.connect(self._toggle_logs)
+        settings_layout.addWidget(self.logs_check)
+
+        level_lbl = QLabel(self.t["level"])
+        level_lbl.setStyleSheet("font-size: 11px; color: #888;")
+        settings_layout.addWidget(level_lbl)
+
+        self.level_combo = QComboBox()
+        self.level_combo.addItems(["debug", "info", "warn", "error"])
+        self.level_combo.setCurrentText(self.config.get("log_level", "info"))
+        self.level_combo.currentTextChanged.connect(self._change_log_level)
+        self.level_combo.setFixedWidth(70)
+        settings_layout.addWidget(self.level_combo)
+
+        settings_layout.addStretch()
+        settings_group.setLayout(settings_layout)
+        layout.addWidget(settings_group)
+
+        # Bottom buttons
+        btn_row = QHBoxLayout()
+
+        self.toggle_btn = QPushButton(f"{self.t['toggle']} ({self.config['hotkeys']['toggle'].upper()})")
+        self.toggle_btn.setMinimumHeight(36)
+        self.toggle_btn.setObjectName("primary")
+        self.toggle_btn.clicked.connect(self.state.toggle)
+        btn_row.addWidget(self.toggle_btn)
+
+        self.save_btn = QPushButton(self.t["save"])
+        self.save_btn.setMinimumHeight(36)
+        self.save_btn.clicked.connect(self._save)
+        btn_row.addWidget(self.save_btn)
+
+        self.quit_btn = QPushButton(f"{self.t['quit']} ({self.config['hotkeys']['quit'].upper()})")
+        self.quit_btn.setMinimumHeight(36)
+        self.quit_btn.setObjectName("danger")
+        self.quit_btn.clicked.connect(self.state.request_quit)
+        btn_row.addWidget(self.quit_btn)
+
+        layout.addLayout(btn_row)
+
+    def _refresh_profile_list(self):
+        self.profile_combo.blockSignals(True)
+        self.profile_combo.clear()
+        for name in sorted(self.profiles["profiles"].keys()):
+            self.profile_combo.addItem(name)
+        idx = self.profile_combo.findText(self.profiles["active"])
+        if idx >= 0:
+            self.profile_combo.setCurrentIndex(idx)
+        self.profile_combo.blockSignals(False)
+
+    def _on_profile_changed(self, name):
+        if name and name in self.profiles["profiles"]:
+            self.profiles["active"] = name
+            self._load_profile()
+            self._reinstall_hooks()
+            log(f"Switched to profile: {name}")
+
+    def _load_profile(self):
+        name = self.profiles["active"]
+        targets = self.profiles["profiles"][name]["targets"]
+
+        for target, lbl_source, btn in self.binding_rows:
+            src = targets.get(target, "?")
+            lbl_source.setText(src)
+
+            if name == "Default":
+                # Default profile: blue text, shield icon
+                lbl_source.setStyleSheet("font-size: 14px; font-weight: bold; color: #4285f4; min-width: 80px;")
+                btn.setEnabled(False)
+            else:
+                lbl_source.setStyleSheet("font-size: 14px; font-weight: bold; color: #81c784; min-width: 80px;")
+                btn.setEnabled(True)
+
+        # Update profile name styling
+        self.profile_combo.blockSignals(True)
+        idx = self.profile_combo.findText(name)
+        if idx >= 0:
+            self.profile_combo.setCurrentIndex(idx)
+        self.profile_combo.blockSignals(False)
+
+    def _install_hooks(self):
+        targets = self.profiles["profiles"][self.profiles["active"]]["targets"]
+        install_hooks(self.state, targets)
+
+    def _reinstall_hooks(self):
+        targets = self.profiles["profiles"][self.profiles["active"]]["targets"]
+        reinstall_hooks(self.state, targets)
+
+    def _start_rebind(self, target: str, lbl: QLabel):
+        if self.rebinding:
+            return
+        self.rebinding = True
+
+        name = self.profiles["active"]
+        current = self.profiles["profiles"][name]["targets"].get(target, "?")
+
+        lbl.setText("...")
+        lbl.repaint()
+
+        # Temporarily unhook to catch keypress
+        try: keyboard.unhook_all()
+        except: pass
+
+        event = keyboard.read_event(suppress=True)
+
+        # Reinstall hooks
+        self._install_hooks()
+
+        if event.event_type == keyboard.KEY_DOWN and event.name != "esc":
+            key = event.name
+            if key in VALID_KEYS:
+                self.profiles["profiles"][name]["targets"][target] = key
+                lbl.setText(key)
+                log(f"{target} <- {key}")
+            else:
+                lbl.setText(current)
+                log(f"Invalid key: {key}", "warn")
         else:
-            status.setText("PAUSED")
-            status.setStyleSheet("font-size: 18px; font-weight: bold; color: #f44336; padding: 4px;")
-        if not state.running:
-            app.quit()
+            lbl.setText(current)
 
-    timer = QTimer()
-    timer.timeout.connect(update)
-    timer.start(100)
+        self.rebinding = False
 
-    win.show()
-    app.exec()
-    state.release_all()
-    try: keyboard.unhook_all()
-    except: pass
+    def _create_profile(self):
+        from PyQt6.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(self, self.t["create_title"], self.t["create_prompt"])
+        if ok and name:
+            if create_profile(self.profiles, name):
+                self._refresh_profile_list()
+                self.profile_combo.setCurrentText(name)
+                QMessageBox.information(self, self.t["create_title"], self.t["profile_created"].format(name=name))
+            else:
+                QMessageBox.warning(self, self.t["create_title"], self.t["profile_exists"].format(name=name))
 
+    def _delete_profile(self):
+        name = self.profiles["active"]
+        if name == "Default":
+            QMessageBox.warning(self, self.t["delete_title"], self.t["cannot_delete_default"])
+            return
+        reply = QMessageBox.question(self, self.t["delete_title"], self.t["delete_confirm"].format(name=name))
+        if reply == QMessageBox.StandardButton.Yes:
+            delete_profile(self.profiles, name)
+            self._refresh_profile_list()
+            self._load_profile()
 
-# ================================================================
-# Banner
-# ================================================================
+    def _rename_profile(self):
+        from PyQt6.QtWidgets import QInputDialog
+        old_name = self.profiles["active"]
+        if old_name == "Default":
+            QMessageBox.warning(self, self.t["rename_title"], self.t["cannot_rename_default"])
+            return
+        new_name, ok = QInputDialog.getText(self, self.t["rename_title"], self.t["rename_prompt"], text=old_name)
+        if ok and new_name:
+            if rename_profile(self.profiles, old_name, new_name):
+                self._refresh_profile_list()
+                self.profile_combo.setCurrentText(new_name)
+            else:
+                QMessageBox.warning(self, self.t["rename_title"], self.t["profile_exists"].format(name=new_name))
 
-def print_banner(config, lang):
-    t = LANG[lang]
-    targets = config["targets"]
-    toggle = config["hotkeys"]["toggle"]
-    quit_hk = config["hotkeys"]["quit"]
+    def _export_profile(self):
+        name = self.profiles["active"]
+        filepath, _ = QFileDialog.getSaveFileName(self, self.t["export"], f"{name}.json", "JSON (*.json)")
+        if filepath:
+            if export_profile(self.profiles, name, filepath):
+                QMessageBox.information(self, self.t["export"], self.t["export_saved"].format(path=filepath))
 
-    print("=" * 55)
-    print(f"  {t['banner_title']}")
-    print("=" * 55)
-    print(f"  {t['banner_target']}")
-    for i, target in enumerate(TARGET_ORDER, 1):
-        src = targets.get(target, "?")
-        print(f"    {i}) {target.upper():>6}  <-  {src}")
-    print("-" * 55)
-    print(f"  {t['banner_toggle'].format(hotkey=toggle.upper())}")
-    print(f"  {t['banner_quit'].format(hotkey=quit_hk.upper())}")
-    print(f"  {t['banner_console_quit']}")
-    print("-" * 55)
-    print(f"  {t['banner_rebind']}")
-    print(f"  {t['banner_custom']}")
-    print("-" * 55)
-    print(f"  {t['banner_safety']}")
-    print("=" * 55)
-    if not is_admin():
-        print(f"\n  {t['admin_warning']}")
-    print()
+    def _import_profile(self):
+        filepath, _ = QFileDialog.getOpenFileName(self, self.t["import"], "", "JSON (*.json)")
+        if filepath:
+            name = import_profile(self.profiles, filepath)
+            if name:
+                self._refresh_profile_list()
+                self.profile_combo.setCurrentText(name)
+                QMessageBox.information(self, self.t["import"], self.t["profile_imported"].format(name=name))
+            else:
+                QMessageBox.warning(self, self.t["import"], self.t["invalid_import"])
+
+    def _toggle_logs(self):
+        enabled = self.logs_check.isChecked()
+        self.config["logs_enabled"] = enabled
+        set_logging(enabled, self.config.get("log_level", "info"))
+        self.logs_check.setText(self.t["enabled"] if enabled else "OFF")
+
+    def _change_log_level(self, level):
+        self.config["log_level"] = level
+        set_logging(self.config.get("logs_enabled", True), level)
+
+    def _save(self):
+        self.config["active_profile"] = self.profiles["active"]
+        save_preferences(self.config)
+        save_profiles(self.profiles)
+        log(self.t["save_done"])
+
+    def _start_timer(self):
+        self.timer = QTimer()
+        self.timer.timeout.connect(self._update)
+        self.timer.start(100)
+
+    def _update(self):
+        if self.state.enabled:
+            self.status_label.setText(self.t["active"])
+            self.status_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #4caf50; padding: 4px;")
+        else:
+            self.status_label.setText(self.t["paused"])
+            self.status_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #f44336; padding: 4px;")
+        if not self.state.running:
+            QApplication.quit()
+
+    def closeEvent(self, event):
+        self.state.release_all()
+        try: keyboard.unhook_all()
+        except: pass
+        event.accept()
 
 
 # ================================================================
@@ -754,74 +1107,60 @@ def print_banner(config, lang):
 # ================================================================
 
 def main():
-    config, was_migrated = load_preferences()
-    first_run = not os.path.exists(PREFERENCES_FILE)
-
-    lang = select_language(config)
-    t = LANG[lang]
-
-    # Check for updates (before anything else)
-    if not check_for_updates(lang):
-        sys.exit(0)
-
-    if was_migrated:
-        print(f"  {t['migrated']}\n")
-
-    if first_run:
-        mode = select_mode(config, lang)
-    else:
-        mode = config.get("mode", "nogui")
+    # Check for PyQt6
+    if not HAS_PYQT:
+        print("PyQt6 is required for v1.0.5.")
+        print("Install with: pip install PyQt6")
+        sys.exit(1)
 
     set_console_title("Deltarune Remap")
 
-    # GUI mode
-    if mode == "gui":
-        if first_run:
-            print(f"  Set up your key bindings:\n")
-            rebind_interactive(config, lang)
-        run_gui(config, lang)
-        return
+    # Load config
+    config = load_preferences()
 
-    # NonGUI mode
-    print_banner(config, lang)
+    # Language selection (console, first run)
+    lang = select_language(config)
 
-    if first_run:
-        print(f"  Set up your key bindings:\n")
-        rebind_interactive(config, lang)
-        print_banner(config, lang)
+    # Set logging
+    set_logging(config.get("logs_enabled", True), config.get("log_level", "info"))
+    log(f"Deltarune Key Remapper v{CURRENT_VERSION}")
 
-    if config.get("window_check", True) and HAS_WIN32:
-        print("  Window detection: ON\n")
+    # Check for updates
+    can_continue, update_msg = check_for_updates()
+    if update_msg:
+        log(update_msg, "info" if can_continue else "warn")
 
-    state = RemapState(config, lang)
-    install_hooks(state, config)
+    # Migrate to profiles format
+    profiles = migrate_to_profiles(config)
 
-    print(f"  {t['ready']}\n")
+    # Start GUI
+    app = QApplication(sys.argv)
+    app.setStyle("Fusion")
 
-    window_warn_shown = False
-    try:
-        while state.running:
-            time.sleep(0.1)
-            if config.get("window_check", True) and HAS_WIN32:
-                hwnd = find_deltarune_hwnd()
-                if hwnd is None:
-                    if not window_warn_shown:
-                        print(f"  {t['window_not_found']}")
-                        window_warn_shown = True
-                else:
-                    if not is_deltarune_focused():
-                        if not window_warn_shown:
-                            print(f"  {t['window_not_focused']}")
-                            window_warn_shown = True
-                    else:
-                        window_warn_shown = False
-    except KeyboardInterrupt:
-        print(t["ctrl_c_msg"])
-    finally:
-        state.release_all()
-        try: keyboard.unhook_all()
-        except: pass
-        sys.exit(0)
+    # Dark palette
+    p = QPalette()
+    p.setColor(QPalette.ColorRole.Window, QColor(26, 26, 46))
+    p.setColor(QPalette.ColorRole.WindowText, QColor(220, 220, 220))
+    p.setColor(QPalette.ColorRole.Base, QColor(37, 37, 64))
+    p.setColor(QPalette.ColorRole.Text, QColor(220, 220, 220))
+    p.setColor(QPalette.ColorRole.Button, QColor(37, 37, 64))
+    p.setColor(QPalette.ColorRole.ButtonText, QColor(200, 200, 200))
+    p.setColor(QPalette.ColorRole.Highlight, QColor(34, 85, 170))
+    app.setPalette(p)
+
+    window = MainWindow(config, profiles, lang)
+    window.show()
+
+    # If mandatory update, show dialog
+    if not can_continue and update_msg:
+        QMessageBox.critical(window, LANG_GUI[lang]["update_title"], update_msg)
+
+    app.exec()
+
+    # Cleanup
+    try: keyboard.unhook_all()
+    except: pass
+    sys.exit(0)
 
 
 if __name__ == "__main__":

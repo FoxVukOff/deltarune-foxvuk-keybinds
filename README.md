@@ -8,80 +8,57 @@
 
 ## 🇬🇧 English Version
 
-Custom Deltarune keybind configuration script by FoxVuk. Fully customizable key remapping with GUI and console modes.
+Custom Deltarune keybind configuration script by FoxVuk. GUI-only key remapper with multi-profile support.
 
 ### How It Works
 
-The game receives fixed target keys: **arrows, Z, X, C**. You choose which physical keys trigger them. Default: W A S D Q E R — but you can change every single one directly in the program.
+The game receives fixed target keys: **arrows, Z, X, C**. You choose which physical keys trigger them via GUI profiles.
 
 ### Features
 
-* **Full Customization**: Rebind any source key to any target (Up/Down/Left/Right/Z/X/C) — right in the program, not just in JSON.
-* **GUI Mode**: PyQt6 window with Rebind buttons — click, press a key, done.
-* **NonGUI Mode**: Console interface — press 1-7 to select an action, then press your desired key.
+* **Multi-Profile Support**: Create, delete, rename, export, import profiles. Each profile has its own key bindings.
+* **Default Profile**: Protected, auto-generated, cannot be deleted or renamed. Always reverts to default bindings.
+* **Full Customization**: Rebind any source key to any target (Up/Down/Left/Right/Z/X/C) — in the GUI.
+* **GUI Only**: PyQt6 window with profile selector, rebind buttons, settings.
 * **Full Diagonal Support**: Simultaneous key presses work perfectly.
 * **Window Detection**: Warns when Deltarune window is not found or not focused.
-* **Global Hotkeys**:
-  * `Ctrl + Alt + V` — Toggle remapper ON/OFF
-  * `Ctrl + Alt + Backspace` — Force quit
-* **Bilingual**: English and Russian, selectable on first run.
-* **Persistent Settings**: All bindings saved to `preferences.json`.
-* **Auto Migration**: Settings from v1.0.0-v1.0.2 are automatically converted.
+* **Global Hotkeys**: `Ctrl+Alt+V` (toggle), `Ctrl+Alt+Backspace` (quit).
+* **Auto Update Check**: Checks GitHub on startup. Three modes: `imp` (mandatory), `notimp` (optional), `ignore`.
+* **Bilingual**: English and Russian.
+* **Configurable Logs**: Enable/disable logs, set log level (debug/info/warn/error).
+* **Auto Migration**: Settings from v1.0.0-v1.0.4 are automatically converted.
+* **Profile Fallback**: Corrupted profiles are automatically removed.
 
 ### Default Bindings
 
-| Action | Target (game gets) | Source (you press) |
-|--------|-------------------|-------------------|
-| Up     | Up arrow          | W                 |
-| Down   | Down arrow        | S                 |
-| Left   | Left arrow        | A                 |
-| Right  | Right arrow       | D                 |
-| Confirm| Z                 | Q                 |
-| Cancel | X                 | E                 |
-| Phone  | C                 | R                 |
+| Action | Game gets | You press |
+|--------|-----------|-----------|
+| Up     | Up arrow  | W         |
+| Down   | Down arrow| S         |
+| Left   | Left arrow| A         |
+| Right  | Right arrow| D        |
+| Confirm| Z         | Q         |
+| Cancel | X         | E         |
+| Phone  | C         | R         |
 
-### Configuration (preferences.json)
+### Files
 
-```json
-{
-  "language": "en",
-  "mode": "nogui",
-  "targets": {
-    "up": "w",
-    "down": "s",
-    "left": "a",
-    "right": "d",
-    "z": "q",
-    "x": "e",
-    "c": "r"
-  },
-  "hotkeys": {
-    "toggle": "ctrl+alt+v",
-    "quit": "ctrl+alt+backspace"
-  },
-  "window_check": true,
-  "version": "1.0.3"
-}
-```
-
-* `targets` maps each game action to the physical key you press.
-* Set a source to `null` to disable that action.
+| File | Description |
+|------|-------------|
+| `profiles.json` | All profiles and their bindings |
+| `preferences.json` | App settings (language, active profile, logs, etc.) |
 
 ### Installation & Launch
 
-1. Install dependency:
+1. Install dependencies:
    ```bash
-   pip install keyboard
+   pip install keyboard PyQt6
    ```
 2. Optional (window detection):
    ```bash
    pip install pywin32
    ```
-3. Optional (GUI mode):
-   ```bash
-   pip install PyQt6
-   ```
-4. Run **as Administrator**.
+3. Run **as Administrator**.
 
 ### Safety
 
@@ -93,68 +70,45 @@ The game receives fixed target keys: **arrows, Z, X, C**. You choose which physi
 
 ## 🇷🇺 Русская версия
 
-Скрипт для изменения раскладки управления в Deltarune от FoxVuk. Полная кастомизация привязок клавиш с GUI и консольным режимами.
+Скрипт для изменения раскладки управления в Deltarune от FoxVuk. GUI-ремаппер с мульти-профилями.
 
 ### Как это работает
 
-Игра получает фиксированные целевые клавиши: **стрелки, Z, X, C**. Вы выбираете какие физические клавиши их активируют. По умолчанию: W A S D Q E R — но каждую можно поменять прямо в программе.
+Игра получает фиксированные целевые клавиши: **стрелки, Z, X, C**. Вы выбираете какие физические клавиши их активируют через профили в GUI.
 
 ### Возможности
 
-* **Полная кастомизация**: Переназначьте любую клавишу на любое действие (Вверх/Вниз/Влево/Вправо/Z/X/C) — прямо в программе, не только в JSON.
-* **GUI режим**: Окно PyQt6 с кнопками Rebind — нажмите, нажмите клавишу, готово.
-* **NonGUI режим**: Консоль — нажмите 1-7 для выбора действия, затем нажмите нужную клавишу.
+* **Мульти-профили**: Создавайте, удаляйте, переименовывайте, экспортируйте, импортируйте профили. У каждого свои привязки.
+* **Профиль Default**: Защищён, генерируется автоматически, нельзя удалить или переименовать. Всегда возвращается к дефолтным привязкам.
+* **Полная кастомизация**: Переназначьте любую клавишу — прямо в GUI.
+* **Только GUI**: Окно PyQt6 с выбором профиля, кнопками rebind, настройками.
 * **Поддержка диагоналей**: Одновременные нажатия работают идеально.
 * **Проверка окна**: Предупреждает, если окно Deltarune не найдено.
-* **Горячие клавиши**:
-  * `Ctrl + Alt + V` — Включить/выключить ремап
-  * `Ctrl + Alt + Backspace` — Быстрый выход
+* **Горячие клавиши**: `Ctrl+Alt+V` (переключение), `Ctrl+Alt+Backspace` (выход).
+* **Авто-проверка обновлений**: Проверяет GitHub при запуске. Три режима: `imp` (обязательно), `notimp` (опционально), `ignore`.
 * **Двуязычный интерфейс**: Английский и русский.
-* **Сохранение настроек**: Все привязки в `preferences.json`.
-* **Автоматическая миграция**: Настройки с v1.0.0-v1.0.2 конвертируются.
+* **Настраиваемые логи**: Включение/выключение, уровень (debug/info/warn/error).
+* **Авто-миграция**: Настройки с v1.0.0-v1.0.4 конвертируются.
+* **Fallback профилей**: Повреждённые профили удаляются автоматически.
 
-### Конфигурация (preferences.json)
+### Файлы
 
-```json
-{
-  "language": "ru",
-  "mode": "nogui",
-  "targets": {
-    "up": "w",
-    "down": "s",
-    "left": "a",
-    "right": "d",
-    "z": "q",
-    "x": "e",
-    "c": "r"
-  },
-  "hotkeys": {
-    "toggle": "ctrl+alt+v",
-    "quit": "ctrl+alt+backspace"
-  },
-  "window_check": true,
-  "version": "1.0.3"
-}
-```
-
-* `targets` связывает каждое действие с клавишей, которую вы нажимаете.
-* Установите значение в `null` чтобы отключить действие.
+| Файл | Описание |
+|------|----------|
+| `profiles.json` | Все профили и их привязки |
+| `preferences.json` | Настройки приложения (язык, активный профиль, логи и т.д.) |
 
 ### Установка и запуск
 
-1. Установите зависимость:
+1. Установите зависимости:
    ```bash
-   pip install keyboard
+   pip install keyboard PyQt6
    ```
 2. Опционально (проверка окна):
    ```bash
    pip install pywin32
    ```
-3. Опционально (GUI режим):
-   ```bash
-   pip install PyQt6
-   ```
-4. Запустите **от имени администратора**.
+3. Запустите **от имени администратора**.
 
 ### Безопасность
 
