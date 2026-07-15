@@ -10,15 +10,21 @@
 
 Custom Deltarune keybind configuration script by FoxVuk. Remaps control keys to a classic layout and handles system execution safely.
 
+### About the Layout
+
+Why C -> R? Because R is right next to E on the keyboard — it's the closest convenient key for the phone/call menu. Is this the perfect layout? Honestly, no. But it works, it's nearby, and after trying a few options this is what stuck. You can change any binding in `preferences.json` or switch presets by pressing **N** in-game.
+
 ### Features
 
 * **WASD -> Arrows** (Up / Left / Down / Right)
 * **Q -> Z** (Confirm / Interact)
 * **E -> X** (Cancel / Run)
-* **C -> configurable** (disabled by default, set in preferences.json)
+* **C -> R** (Phone / Call menu — R is right next to E)
 * **Full Diagonal Support**: Handles simultaneous key presses perfectly without ghosting or stuck keys.
 * **Custom Key Bindings**: Remap any key to any other key, or disable remapping for specific keys entirely.
+* **Layout Presets**: Press **N** to cycle through presets (Default, Classic, Full). Changeable anytime.
 * **Window Detection**: Warns when Deltarune window is not found or not focused.
+* **GUI & NonGUI Modes**: Console interface by default, or optional PyQt6 GUI window.
 * **Global Hotkeys**:
   * `Ctrl + Alt + V` — Toggle remapper ON/OFF
   * `Ctrl + Alt + Backspace` — Force quit the application
@@ -32,6 +38,7 @@ Created automatically on first run. You can edit it manually or reconfigure inte
 ```json
 {
   "language": "en",
+  "mode": "nogui",
   "remap": {
     "w": "up",
     "a": "left",
@@ -39,18 +46,21 @@ Created automatically on first run. You can edit it manually or reconfigure inte
     "d": "right",
     "q": "z",
     "e": "x",
-    "c": null
+    "c": "r"
   },
   "hotkeys": {
     "toggle": "ctrl+alt+v",
     "quit": "ctrl+alt+backspace"
   },
-  "window_check": true
+  "window_check": true,
+  "layout_preset": "default"
 }
 ```
 
 * Set a key's value to `null` to disable remapping for that key.
+* `mode`: `"nogui"` for console, `"gui"` for PyQt6 window.
 * `window_check` enables/disables Deltarune window detection warnings.
+* `layout_preset`: `"default"` (C->R), `"classic"` (no C), `"full"` (C passes through).
 
 ### Installation & Launch
 
@@ -62,7 +72,11 @@ Created automatically on first run. You can edit it manually or reconfigure inte
    ```bash
    pip install pywin32
    ```
-3. Run the provided `.bat` file **as Administrator** (required for Windows to capture and emulate system-level keyboard inputs safely).
+3. Optional: for GUI mode, install `PyQt6`:
+   ```bash
+   pip install PyQt6
+   ```
+4. Run the provided `.bat` file **as Administrator** (required for Windows to capture and emulate system-level keyboard inputs safely).
 
 ### Building to EXE
 
@@ -85,15 +99,21 @@ The EXE will be in the `dist/` folder.
 
 Скрипт для изменения раскладки управления в Deltarune от FoxVuk. Переносит стрелки на WASD и подготавливает удобную среду для запуска.
 
+### О раскладке
+
+Почему C -> R? Потому что R рядом с E на клавиатуре — это ближайшая удобная клавиша для меню звонка. Идеальная ли это раскладка? Честно, нет. Но работает, находится рядом, и после нескольких попыток это то, что осталось. Любую привязку можно поменять в `preferences.json` или переключать пресеты клавишей **N** прямо в игре.
+
 ### Возможности
 
 * **WASD -> Стрелки** (Вверх / Влево / Вниз / Вправо)
 * **Q -> Z** (Подтверждение / Действие)
 * **E -> X** (Отмена / Бег)
-* **C -> настраивается** (по умолчанию отключено, настраивается в preferences.json)
+* **C -> R** (Меню звонка — R рядом с E)
 * **Поддержка диагоналей**: Корректно обрабатывает любые одновременные нажатия без залипания клавиш.
 * **Пользовательские привязки клавиш**: Можно перенаправить любую клавишу на любую другую, или отключить перенаправление для отдельных клавиш.
+* **Пресеты раскладок**: Нажмите **N** для переключения (Стандартная, Классическая, Полная). Можно менять в любой момент.
 * **Проверка окна**: Предупреждает, если окно Deltarune не найдено или не активно.
+* **GUI и NonGUI режимы**: Консольный интерфейс по умолчанию, или опциональное окно PyQt6.
 * **Горячие клавиши**:
   * `Ctrl + Alt + V` — Включить / Выключить ремап
   * `Ctrl + Alt + Backspace` — Быстрый выход из программы
@@ -107,6 +127,7 @@ The EXE will be in the `dist/` folder.
 ```json
 {
   "language": "ru",
+  "mode": "nogui",
   "remap": {
     "w": "up",
     "a": "left",
@@ -114,18 +135,21 @@ The EXE will be in the `dist/` folder.
     "d": "right",
     "q": "z",
     "e": "x",
-    "c": null
+    "c": "r"
   },
   "hotkeys": {
     "toggle": "ctrl+alt+v",
     "quit": "ctrl+alt+backspace"
   },
-  "window_check": true
+  "window_check": true,
+  "layout_preset": "default"
 }
 ```
 
 * Установите значение клавиши в `null` чтобы отключить перенаправление для неё.
+* `mode`: `"nogui"` для консоли, `"gui"` для окна PyQt6.
 * `window_check` включает/отключает предупреждения о окне Deltarune.
+* `layout_preset`: `"default"` (C->R), `"classic"` (без C), `"full"` (C проходит).
 
 ### Установка и запуск
 
@@ -137,7 +161,11 @@ The EXE will be in the `dist/` folder.
    ```bash
    pip install pywin32
    ```
-3. Запустите `.bat` файл **от имени администратора** (это обязательно, чтобы Windows разрешила перехватывать и эмулировать нажатия клавиш на системном уровне).
+3. Опционально: для GUI режима установите `PyQt6`:
+   ```bash
+   pip install PyQt6
+   ```
+4. Запустите `.bat` файл **от имени администратора** (это обязательно, чтобы Windows разрешила перехватывать и эмулировать нажатия клавиш на системном уровне).
 
 ### Сборка в EXE
 
