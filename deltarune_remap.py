@@ -69,7 +69,7 @@ else:
 PROFILES_FILE = os.path.join(SCRIPT_DIR, "profiles.json")
 PREFERENCES_FILE = os.path.join(SCRIPT_DIR, "preferences.json")
 
-CURRENT_VERSION = "1.0.8"
+CURRENT_VERSION = "1.0.9"
 UPDATE_URL = "https://raw.githubusercontent.com/FoxVukOff/deltarune-foxvuk-keybinds/refs/heads/main/version.txt"
 REPO_URL = "https://github.com/FoxVukOff/deltarune-foxvuk-keybinds"
 
@@ -509,9 +509,9 @@ def load_preferences() -> dict:
             with open(PREFERENCES_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
-            # Migrate old format
+            # Migrate old format (any version before current)
             old_ver = data.get("version", "1.0.0")
-            if old_ver in ("1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", None):
+            if old_ver != CURRENT_VERSION:
                 data = migrate_preferences(data)
 
             config = dict(DEFAULT_CONFIG)
@@ -520,6 +520,10 @@ def load_preferences() -> dict:
                 hotkeys = dict(DEFAULT_CONFIG["hotkeys"])
                 hotkeys.update(data["hotkeys"])
                 config["hotkeys"] = hotkeys
+            if "profile_hotkeys" in data:
+                phk = dict(DEFAULT_CONFIG["profile_hotkeys"])
+                phk.update(data["profile_hotkeys"])
+                config["profile_hotkeys"] = phk
             return config
 
         except (json.JSONDecodeError, IOError):
@@ -528,7 +532,7 @@ def load_preferences() -> dict:
 
 
 def save_preferences(config: dict):
-    config["version"] = "1.0.5"
+    config["version"] = CURRENT_VERSION
     with open(PREFERENCES_FILE, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
 
@@ -1421,6 +1425,16 @@ def main():
     p.setColor(QPalette.ColorRole.ButtonText, QColor(200, 200, 200))
     p.setColor(QPalette.ColorRole.Highlight, QColor(34, 85, 170))
     app.setPalette(p)
+
+    # Block if version not supported
+    if update_status == "notsup":
+        msg_box = QMessageBox()
+        msg_box.setIcon(QMessageBox.Icon.Critical)
+        msg_box.setWindowTitle("Version Not Supported")
+        msg_box.setText(update_msg)
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg_box.exec()
+        sys.exit(0)
 
     window = MainWindow(config, profiles, lang, update_status, update_msg)
     window.show()
