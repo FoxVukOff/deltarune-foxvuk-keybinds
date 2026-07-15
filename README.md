@@ -1,4 +1,4 @@
-# Deltarune Key Remapper (Latest Version: v1.0.7)
+# Deltarune Key Remapper (Latest Version: v1.0.8)
 
 🌐 **Language / Язык:**
 * [🇬🇧 English Version](#-english-version)
@@ -114,4 +114,3 @@ The game receives fixed target keys: **arrows, Z, X, C**. You choose which physi
 
 * Перехватывает ТОЛЬКО клавиши из вашего конфига. Ничего больше не блокируется.
 * `Ctrl+Alt+Delete` всегда работает (на уровне ОС).
-* `STOP_REMAP.bat` — двойной клик мгновенно убивает процесс.
