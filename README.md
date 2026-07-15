@@ -12,14 +12,14 @@ Custom Deltarune keybind configuration script by FoxVuk. Remaps control keys to 
 
 ### About the Layout
 
-Why C -> R? Because R is right next to E on the keyboard — it's the closest convenient key for the phone/call menu. Is this the perfect layout? Honestly, no. But it works, it's nearby, and after trying a few options this is what stuck. You can change any binding in `preferences.json` or switch presets by pressing **N** in-game.
+Why R -> C? Because R is right next to E on the keyboard — it's the closest convenient key for the phone/call menu. Is this the perfect layout? Honestly, no. But it works, it's nearby, and after trying a few options this is what stuck. You can change any binding in `preferences.json` or switch presets by pressing **N** in-game.
 
 ### Features
 
 * **WASD -> Arrows** (Up / Left / Down / Right)
 * **Q -> Z** (Confirm / Interact)
 * **E -> X** (Cancel / Run)
-* **C -> R** (Phone / Call menu — R is right next to E)
+* **R -> C** (Phone / Call menu — R is right next to E)
 * **Full Diagonal Support**: Handles simultaneous key presses perfectly without ghosting or stuck keys.
 * **Custom Key Bindings**: Remap any key to any other key, or disable remapping for specific keys entirely.
 * **Layout Presets**: Press **N** to cycle through presets (Default, Classic, Full). Changeable anytime.
@@ -30,6 +30,7 @@ Why C -> R? Because R is right next to E on the keyboard — it's the closest co
   * `Ctrl + Alt + Backspace` — Force quit the application
 * **Bilingual Interface**: English and Russian, selectable on first run.
 * **Persistent Settings**: All configuration saved to `preferences.json`.
+* **Auto Migration**: Settings from v1.0.0/v1.0.1 are automatically migrated to v1.0.2.
 
 ### Configuration (preferences.json)
 
@@ -46,21 +47,22 @@ Created automatically on first run. You can edit it manually or reconfigure inte
     "d": "right",
     "q": "z",
     "e": "x",
-    "c": "r"
+    "r": "c"
   },
   "hotkeys": {
     "toggle": "ctrl+alt+v",
     "quit": "ctrl+alt+backspace"
   },
   "window_check": true,
-  "layout_preset": "default"
+  "layout_preset": "default",
+  "version": "1.0.2"
 }
 ```
 
 * Set a key's value to `null` to disable remapping for that key.
 * `mode`: `"nogui"` for console, `"gui"` for PyQt6 window.
 * `window_check` enables/disables Deltarune window detection warnings.
-* `layout_preset`: `"default"` (C->R), `"classic"` (no C), `"full"` (C passes through).
+* `layout_preset`: `"default"` (R->C), `"classic"` (no R), `"full"` (R->C pass-through).
 
 ### Installation & Launch
 
@@ -101,14 +103,14 @@ The EXE will be in the `dist/` folder.
 
 ### О раскладке
 
-Почему C -> R? Потому что R рядом с E на клавиатуре — это ближайшая удобная клавиша для меню звонка. Идеальная ли это раскладка? Честно, нет. Но работает, находится рядом, и после нескольких попыток это то, что осталось. Любую привязку можно поменять в `preferences.json` или переключать пресеты клавишей **N** прямо в игре.
+Почему R -> C? Потому что R рядом с E на клавиатуре — это ближайшая удобная клавиша для меню звонка. Идеальная ли это раскладка? Честно, нет. Но работает, находится рядом, и после нескольких попыток это то, что осталось. Любую привязку можно поменять в `preferences.json` или переключать пресеты клавишей **N** прямо в игре.
 
 ### Возможности
 
 * **WASD -> Стрелки** (Вверх / Влево / Вниз / Вправо)
 * **Q -> Z** (Подтверждение / Действие)
 * **E -> X** (Отмена / Бег)
-* **C -> R** (Меню звонка — R рядом с E)
+* **R -> C** (Меню звонка — R рядом с E)
 * **Поддержка диагоналей**: Корректно обрабатывает любые одновременные нажатия без залипания клавиш.
 * **Пользовательские привязки клавиш**: Можно перенаправить любую клавишу на любую другую, или отключить перенаправление для отдельных клавиш.
 * **Пресеты раскладок**: Нажмите **N** для переключения (Стандартная, Классическая, Полная). Можно менять в любой момент.
@@ -119,6 +121,7 @@ The EXE will be in the `dist/` folder.
   * `Ctrl + Alt + Backspace` — Быстрый выход из программы
 * **Двуязычный интерфейс**: Английский и русский, выбор при первом запуске.
 * **Сохранение настроек**: Все настройки сохраняются в `preferences.json`.
+* **Автоматическая миграция**: Настройки с v1.0.0/v1.0.1 автоматически мигрируют на v1.0.2.
 
 ### Конфигурация (preferences.json)
 
@@ -135,21 +138,22 @@ The EXE will be in the `dist/` folder.
     "d": "right",
     "q": "z",
     "e": "x",
-    "c": "r"
+    "r": "c"
   },
   "hotkeys": {
     "toggle": "ctrl+alt+v",
     "quit": "ctrl+alt+backspace"
   },
   "window_check": true,
-  "layout_preset": "default"
+  "layout_preset": "default",
+  "version": "1.0.2"
 }
 ```
 
 * Установите значение клавиши в `null` чтобы отключить перенаправление для неё.
 * `mode`: `"nogui"` для консоли, `"gui"` для окна PyQt6.
 * `window_check` включает/отключает предупреждения о окне Deltarune.
-* `layout_preset`: `"default"` (C->R), `"classic"` (без C), `"full"` (C проходит).
+* `layout_preset`: `"default"` (R->C), `"classic"` (без R), `"full"` (R->C проходит).
 
 ### Установка и запуск
 

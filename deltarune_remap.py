@@ -7,7 +7,7 @@
 WASD  ->  arrows (Up / Left / Down / Right)
 Q     ->  Z
 E     ->  X
-C     ->  R (phone/call menu — R is right next to E, convenient)
+R     ->  C (phone/call menu)
 
 Fully supports diagonals and any simultaneous key presses —
 as if you were physically pressing the arrows: you don't need to
@@ -27,8 +27,7 @@ SAFETY: why this won't lock your keyboard
 The script hooks EXACTLY the keys listed in your config — each
 via its own keyboard.hook_key(). NOTHING else is hooked. Alt+Tab,
 Win, Esc, F-keys, Ctrl+Shift+Esc etc. cannot be blocked by this
-script. Hotkeys (Ctrl+Alt+V and Ctrl+Alt+Backspace) use the
-standard keyboard.add_hotkey() mechanism.
+script.
 
 ----------------------------------------------------------------
 First run: language selection (EN / RU), mode (GUI / NonGUI)
@@ -72,6 +71,40 @@ PREFERENCES_FILE = os.path.join(SCRIPT_DIR, "preferences.json")
 
 
 # ================================================================
+# Migration: v1.0.0/v1.0.1 -> v1.0.2
+# ================================================================
+
+def migrate_preferences(data: dict) -> dict:
+    """
+    Migrate old preferences to v1.0.2 format.
+
+    v1.0.0: had "c": null (C disabled)
+    v1.0.1: had "c": "r" (C -> R, wrong direction)
+    v1.0.2: "r": "c" (R -> C, correct direction), no "c" key in remap
+    """
+    remap = data.get("remap", {})
+
+    # v1.0.1 had "c": "r" — remove it
+    if "c" in remap:
+        del remap["c"]
+
+    # v1.0.0 had "c": null — remove it
+    if "c" in remap:
+        del remap["c"]
+
+    # Add R -> C if not present
+    if "r" not in remap:
+        remap["r"] = "c"
+
+    data["remap"] = remap
+
+    # Add version marker
+    data["version"] = "1.0.2"
+
+    return data
+
+
+# ================================================================
 # Localizations
 # ================================================================
 
@@ -82,7 +115,7 @@ LANG = {
         "banner_wasd": "W A S D  ->  arrows (diagonals work)",
         "banner_q": "Q        ->  Z",
         "banner_e": "E        ->  X",
-        "banner_c": "C        ->  R (phone menu)",
+        "banner_r": "R        ->  C (phone menu)",
         "banner_toggle": "{hotkey}  —  toggle remap on/off",
         "banner_quit": "{hotkey}  —  quit the program",
         "banner_switch": "N        —  switch layout preset",
@@ -91,8 +124,8 @@ LANG = {
         "banner_safety2": "It will kill the process instantly, regardless",
         "banner_safety3": "of keyboard state. Ctrl+Alt+Delete also always",
         "banner_safety4": "works and cannot be blocked by any program.",
-        "banner_layout_note": "Layout: C->R because R is right next to E. Not perfect,",
-        "banner_layout_note2": "but it works. You can change it in preferences.json.",
+        "banner_layout_note": "Layout: R->C because R is right next to E on the keyboard.",
+        "banner_layout_note2": "Not perfect, but it works. Change it in preferences.json.",
         # Admin warning
         "admin_warning_title": "WARNING: NOT running as Administrator.",
         "admin_warning_line1": "On Windows without admin rights, keyboard often",
@@ -109,6 +142,7 @@ LANG = {
         "hook_error_hint": "Make sure the script is running as Administrator.",
         "key_error": "Error handling '{key}': {err}",
         "layout_switched": "Layout switched to: {name}",
+        "migrated": "Settings migrated from old version to v1.0.2.",
         # Window detection
         "window_check_enabled": "Window detection: ON (Deltarune window must be focused)",
         "window_check_disabled": "Window detection: OFF",
@@ -159,7 +193,7 @@ LANG = {
         "banner_wasd": "W A S D  ->  стрелки (диагонали работают)",
         "banner_q": "Q        ->  Z",
         "banner_e": "E        ->  X",
-        "banner_c": "C        ->  R (меню звонка)",
+        "banner_r": "R        ->  C (меню звонка)",
         "banner_toggle": "{hotkey}  —  включить/выключить ремап",
         "banner_quit": "{hotkey}  —  выйти из программы",
         "banner_switch": "N        —  сменить раскладку",
@@ -168,8 +202,8 @@ LANG = {
         "banner_safety2": "Она убьёт процесс мгновенно, независимо",
         "banner_safety3": "от состояния клавиатуры. Ctrl+Alt+Delete тоже всегда",
         "banner_safety4": "работает и не может быть заблокирована ни одной программой.",
-        "banner_layout_note": "Раскладка: C->R потому что R рядом с E. Не идеально,",
-        "banner_layout_note2": "но работает. Можно поменять в preferences.json.",
+        "banner_layout_note": "Раскладка: R->C потому что R рядом с E на клавиатуре.",
+        "banner_layout_note2": "Не идеально, но работает. Можно поменять в preferences.json.",
         # Admin warning
         "admin_warning_title": "ВНИМАНИЕ: окно запущено НЕ от имени администратора.",
         "admin_warning_line1": "На Windows без прав администратора keyboard часто не",
@@ -186,6 +220,7 @@ LANG = {
         "hook_error_hint": "Убедитесь, что скрипт запущен от имени администратора.",
         "key_error": "Ошибка обработки '{key}': {err}",
         "layout_switched": "Раскладка переключена: {name}",
+        "migrated": "Настройки мигрированы со старой версии на v1.0.2.",
         # Window detection
         "window_check_enabled": "Проверка окна: ВКЛ (окно Deltarune должно быть активным)",
         "window_check_disabled": "Проверка окна: ВЫКЛ",
@@ -239,8 +274,8 @@ LANG = {
 
 LAYOUT_PRESETS = {
     "default": {
-        "name_en": "Default (C->R)",
-        "name_ru": "Стандартная (C->R)",
+        "name_en": "Default (R->C)",
+        "name_ru": "Стандартная (R->C)",
         "remap": {
             "w": "up",
             "a": "left",
@@ -248,12 +283,12 @@ LAYOUT_PRESETS = {
             "d": "right",
             "q": "z",
             "e": "x",
-            "c": "r",
+            "r": "c",
         },
     },
     "classic": {
-        "name_en": "Classic (no C)",
-        "name_ru": "Классическая (без C)",
+        "name_en": "Classic (no R)",
+        "name_ru": "Классическая (без R)",
         "remap": {
             "w": "up",
             "a": "left",
@@ -261,12 +296,12 @@ LAYOUT_PRESETS = {
             "d": "right",
             "q": "z",
             "e": "x",
-            "c": None,
+            "r": None,
         },
     },
     "full": {
-        "name_en": "Full (C->C pass-through)",
-        "name_ru": "Полная (C->C проходит)",
+        "name_en": "Full (R->C pass-through)",
+        "name_ru": "Полная (R->C проходит)",
         "remap": {
             "w": "up",
             "a": "left",
@@ -274,7 +309,7 @@ LAYOUT_PRESETS = {
             "d": "right",
             "q": "z",
             "e": "x",
-            "c": "c",
+            "r": "c",
         },
     },
 }
@@ -291,7 +326,7 @@ DEFAULT_REMAP = {
     "d": "right",
     "q": "z",
     "e": "x",
-    "c": "r",
+    "r": "c",
 }
 
 DEFAULT_HOTKEYS = {
@@ -306,6 +341,7 @@ DEFAULT_CONFIG = {
     "hotkeys": dict(DEFAULT_HOTKEYS),
     "window_check": True,
     "layout_preset": "default",
+    "version": "1.0.2",
 }
 
 # Valid keyboard key names for validation
@@ -327,11 +363,22 @@ VALID_KEYS = {
 # Preferences management
 # ================================================================
 
-def load_preferences() -> dict:
+def load_preferences() -> tuple[dict, bool]:
+    """Load preferences from JSON file, or return defaults.
+    Returns (config, was_migrated)."""
+    was_migrated = False
     if os.path.exists(PREFERENCES_FILE):
         try:
             with open(PREFERENCES_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
+
+            # Check if migration is needed
+            old_version = data.get("version", "1.0.0")
+            if old_version in ("1.0.0", "1.0.1", None):
+                data = migrate_preferences(data)
+                was_migrated = True
+
+            # Merge with defaults in case new keys were added
             config = dict(DEFAULT_CONFIG)
             config.update(data)
             if "remap" in data:
@@ -342,15 +389,16 @@ def load_preferences() -> dict:
                 hotkeys = dict(DEFAULT_HOTKEYS)
                 hotkeys.update(data["hotkeys"])
                 config["hotkeys"] = hotkeys
-            return config
+            return config, was_migrated
         except (json.JSONDecodeError, IOError):
             pass
-    return dict(DEFAULT_CONFIG)
+    return dict(DEFAULT_CONFIG), was_migrated
 
 
 def save_preferences(config: dict, lang: str):
     t = LANG[lang]
     print(t["prefs_saving"])
+    config["version"] = "1.0.2"
     with open(PREFERENCES_FILE, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
 
@@ -429,13 +477,7 @@ def select_mode(config: dict, lang: str) -> str:
 # Layout switching
 # ================================================================
 
-def get_preset_names() -> dict:
-    """Return {preset_key: (name_en, name_ru)} for display."""
-    return {k: (v["name_en"], v["name_ru"]) for k, v in LAYOUT_PRESETS.items()}
-
-
 def switch_layout(config: dict, lang: str) -> dict:
-    """Cycle to the next layout preset."""
     preset_keys = list(LAYOUT_PRESETS.keys())
     current = config.get("layout_preset", "default")
     try:
@@ -555,7 +597,6 @@ def make_key_handler(state: RemapState, source_key: str, target_key: str):
 # ================================================================
 
 def install_hooks(state: RemapState, config: dict, lang: str):
-    """Install keyboard hooks based on current config."""
     t = LANG[lang]
     try:
         for source_key, target_key in config["remap"].items():
@@ -575,7 +616,6 @@ def install_hooks(state: RemapState, config: dict, lang: str):
 
 
 def reinstall_hooks(state: RemapState, config: dict, lang: str):
-    """Unhook all and reinstall with current config."""
     try:
         keyboard.unhook_all()
     except Exception:
@@ -687,7 +727,7 @@ def print_banner(config: dict, lang: str):
     print(f" {t['banner_wasd']}")
     print(f" {t['banner_q']}")
     print(f" {t['banner_e']}")
-    print(f" {t['banner_c']}")
+    print(f" {t['banner_r']}")
     print("-" * 62)
     print(f" {t['banner_toggle'].format(hotkey=toggle_hk.upper())}")
     print(f" {t['banner_quit'].format(hotkey=quit_hk.upper())}")
@@ -722,9 +762,11 @@ def run_gui(config: dict, lang: str):
     try:
         from PyQt6.QtWidgets import (
             QApplication, QMainWindow, QLabel, QVBoxLayout,
-            QWidget, QPushButton, QGroupBox
+            QHBoxLayout, QWidget, QPushButton, QGroupBox,
+            QFrame, QSizePolicy
         )
         from PyQt6.QtCore import Qt, QTimer
+        from PyQt6.QtGui import QFont, QColor, QPalette
     except ImportError:
         t = LANG[lang]
         print(t["mode_gui_missing"])
@@ -734,70 +776,148 @@ def run_gui(config: dict, lang: str):
     install_hooks(state, config, lang)
 
     app = QApplication(sys.argv)
+
+    # Dark theme
+    app.setStyle("Fusion")
+    palette = QPalette()
+    palette.setColor(QPalette.ColorRole.Window, QColor(30, 30, 30))
+    palette.setColor(QPalette.ColorRole.WindowText, QColor(220, 220, 220))
+    palette.setColor(QPalette.ColorRole.Base, QColor(40, 40, 40))
+    palette.setColor(QPalette.ColorRole.AlternateBase, QColor(50, 50, 50))
+    palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(50, 50, 50))
+    palette.setColor(QPalette.ColorRole.ToolTipText, QColor(220, 220, 220))
+    palette.setColor(QPalette.ColorRole.Text, QColor(220, 220, 220))
+    palette.setColor(QPalette.ColorRole.Button, QColor(50, 50, 50))
+    palette.setColor(QPalette.ColorRole.ButtonText, QColor(220, 220, 220))
+    palette.setColor(QPalette.ColorRole.BrightText, QColor(255, 50, 50))
+    palette.setColor(QPalette.ColorRole.Highlight, QColor(80, 120, 180))
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
+    app.setPalette(palette)
+
     window = QMainWindow()
-    window.setWindowTitle("Deltarune Key Remapper")
-    window.setFixedSize(400, 350)
+    window.setWindowTitle("Deltarune Key Remapper v1.0.2")
+    window.setFixedSize(420, 400)
+    window.setStyleSheet("""
+        QMainWindow { background: #1e1e1e; }
+        QGroupBox {
+            font-size: 13px;
+            font-weight: bold;
+            color: #aaa;
+            border: 1px solid #444;
+            border-radius: 6px;
+            margin-top: 10px;
+            padding-top: 15px;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 12px;
+            padding: 0 6px;
+        }
+        QLabel { color: #ddd; }
+        QPushButton {
+            background: #333;
+            color: #ddd;
+            border: 1px solid #555;
+            border-radius: 5px;
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+        QPushButton:hover { background: #444; border-color: #777; }
+        QPushButton:pressed { background: #555; }
+    """)
 
     central = QWidget()
     window.setCentralWidget(central)
     layout = QVBoxLayout(central)
+    layout.setSpacing(8)
 
-    # Status label
-    status_label = QLabel("Remap: ON")
+    # Status
+    status_label = QLabel("REMAPPING: ACTIVE")
     status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    status_label.setStyleSheet("font-size: 18px; font-weight: bold; color: green;")
+    status_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #4caf50; padding: 6px;")
     layout.addWidget(status_label)
 
-    # Remap info
-    group = QGroupBox("Active Bindings")
+    # Bindings group
+    group = QGroupBox("  Active Bindings  ")
     group_layout = QVBoxLayout()
+    group_layout.setSpacing(4)
+
     binding_labels = []
     for src, tgt in config["remap"].items():
+        row = QHBoxLayout()
+        key_from = QLabel(f"  {src.upper()}")
+        key_from.setStyleSheet("font-size: 15px; font-weight: bold; color: #64b5f6; min-width: 40px;")
+        arrow = QLabel("  ->  ")
+        arrow.setStyleSheet("font-size: 13px; color: #888;")
         if tgt is not None:
-            lbl = QLabel(f"  {src.upper()}  ->  {tgt}")
-            lbl.setStyleSheet("font-size: 14px;")
-            group_layout.addWidget(lbl)
-            binding_labels.append(lbl)
+            key_to = QLabel(f"{tgt}")
+            key_to.setStyleSheet("font-size: 15px; font-weight: bold; color: #81c784;")
+        else:
+            key_to = QLabel("(disabled)")
+            key_to.setStyleSheet("font-size: 13px; color: #666;")
+        row.addWidget(key_from)
+        row.addWidget(arrow)
+        row.addWidget(key_to)
+        row.addStretch()
+        group_layout.addLayout(row)
+        binding_labels.append((key_from, arrow, key_to))
+
     group.setLayout(group_layout)
     layout.addWidget(group)
 
-    # Toggle button
-    toggle_btn = QPushButton(f"Toggle ({config['hotkeys']['toggle'].upper()})")
-    toggle_btn.setStyleSheet("font-size: 14px; padding: 8px;")
-    toggle_btn.clicked.connect(state.toggle)
-    layout.addWidget(toggle_btn)
+    # Buttons
+    btn_layout = QHBoxLayout()
 
-    # Layout switch button
-    switch_btn = QPushButton("Switch Layout (N)")
-    switch_btn.setStyleSheet("font-size: 12px; padding: 6px;")
+    toggle_btn = QPushButton(f"Toggle\n({config['hotkeys']['toggle'].upper()})")
+    toggle_btn.setMinimumHeight(50)
+    toggle_btn.setStyleSheet("""
+        QPushButton { font-size: 12px; background: #2e7d32; color: white; border: none; border-radius: 6px; }
+        QPushButton:hover { background: #388e3c; }
+    """)
+    toggle_btn.clicked.connect(state.toggle)
+    btn_layout.addWidget(toggle_btn)
+
+    switch_btn = QPushButton("Switch\nLayout (N)")
+    switch_btn.setMinimumHeight(50)
+    switch_btn.setStyleSheet("""
+        QPushButton { font-size: 12px; background: #1565c0; color: white; border: none; border-radius: 6px; }
+        QPushButton:hover { background: #1976d2; }
+    """)
     def on_switch():
         nonlocal config
         config = switch_layout(config, lang)
         reinstall_hooks(state, config, lang)
-        # Update binding labels
         for i, (src, tgt) in enumerate(config["remap"].items()):
             if i < len(binding_labels):
+                _, _, key_to = binding_labels[i]
                 if tgt is not None:
-                    binding_labels[i].setText(f"  {src.upper()}  ->  {tgt}")
+                    key_to.setText(f"{tgt}")
+                    key_to.setStyleSheet("font-size: 15px; font-weight: bold; color: #81c784;")
                 else:
-                    binding_labels[i].setText(f"  {src.upper()}  ->  (disabled)")
+                    key_to.setText("(disabled)")
+                    key_to.setStyleSheet("font-size: 13px; color: #666;")
     switch_btn.clicked.connect(on_switch)
-    layout.addWidget(switch_btn)
+    btn_layout.addWidget(switch_btn)
 
-    # Quit button
-    quit_btn = QPushButton(f"Quit ({config['hotkeys']['quit'].upper()})")
-    quit_btn.setStyleSheet("font-size: 12px; padding: 6px;")
+    quit_btn = QPushButton(f"Quit\n({config['hotkeys']['quit'].upper()})")
+    quit_btn.setMinimumHeight(50)
+    quit_btn.setStyleSheet("""
+        QPushButton { font-size: 12px; background: #c62828; color: white; border: none; border-radius: 6px; }
+        QPushButton:hover { background: #d32f2f; }
+    """)
     quit_btn.clicked.connect(state.request_quit)
-    layout.addWidget(quit_btn)
+    btn_layout.addWidget(quit_btn)
 
-    # Timer to update status and check state
+    layout.addLayout(btn_layout)
+
+    # Timer
     def update():
         if state.enabled:
-            status_label.setText("Remap: ON")
-            status_label.setStyleSheet("font-size: 18px; font-weight: bold; color: green;")
+            status_label.setText("REMAPPING: ACTIVE")
+            status_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #4caf50; padding: 6px;")
         else:
-            status_label.setText("Remap: OFF")
-            status_label.setStyleSheet("font-size: 18px; font-weight: bold; color: red;")
+            status_label.setText("REMAPPING: PAUSED")
+            status_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #f44336; padding: 6px;")
         if not state.running:
             app.quit()
 
@@ -820,12 +940,18 @@ def run_gui(config: dict, lang: str):
 # ================================================================
 
 def main():
-    config = load_preferences()
+    config, was_migrated = load_preferences()
     first_run = not os.path.exists(PREFERENCES_FILE)
 
     # Language selection
     lang = select_language(config)
     t = LANG[lang]
+
+    # Show migration notice
+    if was_migrated:
+        print(f" {t['migrated']}")
+        save_preferences(config, lang)
+        print()
 
     # Mode selection on first run
     if first_run:
@@ -868,7 +994,6 @@ def main():
         nonlocal config
         config = switch_layout(config, lang)
         reinstall_hooks(state, config, lang)
-        # Reprint active bindings
         print(f"\n {t['config_remap']}")
         for src, tgt in config["remap"].items():
             if tgt is not None:
