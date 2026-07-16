@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 ================================================================
- Deltarune Key Remapper v1.0.8
+ Deltarune Key Remapper v1.1.0
 ================================================================
 
 GUI-only key remapper with multi-profile support and hotkeys.
@@ -69,7 +69,7 @@ else:
 PROFILES_FILE = os.path.join(SCRIPT_DIR, "profiles.json")
 PREFERENCES_FILE = os.path.join(SCRIPT_DIR, "preferences.json")
 
-CURRENT_VERSION = "1.0.9"
+CURRENT_VERSION = "1.1.0"
 UPDATE_URL = "https://raw.githubusercontent.com/FoxVukOff/deltarune-foxvuk-keybinds/refs/heads/main/version.txt"
 REPO_URL = "https://github.com/FoxVukOff/deltarune-foxvuk-keybinds"
 
@@ -107,7 +107,7 @@ DEFAULT_CONFIG = {
     "window_check": True,
     "logs_enabled": True,
     "log_level": "info",
-    "version": "1.0.8",
+    "version": "1.1.0",
 }
 
 VALID_KEYS = {
@@ -217,34 +217,36 @@ def set_logging(enabled: bool, level: str = "info"):
 # ================================================================
 
 def migrate_preferences(data: dict) -> dict:
-    """Migrate old v1.0.0-v1.0.4 preferences to v1.0.5 format."""
+    """Migrate old preferences to current format."""
     old_ver = data.get("version", "1.0.0")
 
+    # Handle very old formats (v1.0.0-v1.0.4)
     if old_ver in ("1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", None):
-        # Old format had "targets" or "remap"
         targets = data.get("targets", data.get("remap", {}))
-
-        # Convert old source->target to target->source if needed
         if targets:
             # Check if it's old format (source -> target like "w": "up")
             if "w" in targets and targets["w"] == "up":
-                # Old format: source -> target, invert it
                 new_targets = {}
                 for src, tgt in targets.items():
                     if tgt in TARGET_ORDER:
                         new_targets[tgt] = src
                 targets = new_targets
-
-            # Ensure all targets exist
             for t in TARGET_ORDER:
                 if t not in targets:
                     targets[t] = DEFAULT_PROFILE_TARGETS.get(t, "unknown")
-
         data["targets"] = targets
         data.pop("remap", None)
         data.pop("layout_preset", None)
 
-    data["version"] = "1.0.5"
+    # Ensure profile_hotkeys exists
+    if "profile_hotkeys" not in data:
+        data["profile_hotkeys"] = dict(DEFAULT_CONFIG["profile_hotkeys"])
+
+    # Ensure hotkeys exists
+    if "hotkeys" not in data:
+        data["hotkeys"] = dict(DEFAULT_CONFIG["hotkeys"])
+
+    data["version"] = CURRENT_VERSION
     return data
 
 
@@ -541,24 +543,58 @@ def save_preferences(config: dict):
 # Language selection (console, first run only)
 # ================================================================
 
-def select_language(config: dict) -> str:
+def select_language_gui(config: dict) -> str:
+    """GUI-based language selection for first run."""
     if config.get("language") in ("en", "ru"):
         return config["language"]
-    print("=" * 50)
-    print("  Select language / Выберите язык:")
-    print("=" * 50)
-    print("  1) English")
-    print("  2) Русский")
-    print("=" * 50)
-    while True:
-        choice = input("  > ").strip()
-        if choice == "1":
-            lang = "en"; break
-        elif choice == "2":
-            lang = "ru"; break
+
+    # Create a simple dialog
+    from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
+
+    dialog = QDialog()
+    dialog.setWindowTitle("Select Language / Выберите язык")
+    dialog.setFixedSize(350, 150)
+    dialog.setStyleSheet("""
+        QDialog { background: #1a1a2e; }
+        QLabel { color: #ddd; font-size: 14px; }
+        QPushButton {
+            background: #252540; color: #ccc; border: 1px solid #444466;
+            border-radius: 4px; padding: 10px 20px; font-size: 13px;
+        }
+        QPushButton:hover { background: #333355; border-color: #6666aa; }
+    """)
+
+    layout = QVBoxLayout(dialog)
+
+    title = QLabel("Select language / Выберите язык:")
+    title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    layout.addWidget(title)
+
+    btn_row = QHBoxLayout()
+
+    btn_en = QPushButton("English")
+    btn_en.setMinimumHeight(40)
+    btn_en.clicked.connect(lambda: dialog.done(1))
+    btn_row.addWidget(btn_en)
+
+    btn_ru = QPushButton("Русский")
+    btn_ru.setMinimumHeight(40)
+    btn_ru.clicked.connect(lambda: dialog.done(2))
+    btn_row.addWidget(btn_ru)
+
+    layout.addLayout(btn_row)
+
+    result = dialog.exec()
+
+    if result == 1:
+        lang = "en"
+    elif result == 2:
+        lang = "ru"
+    else:
+        lang = "en"  # Default fallback
+
     config["language"] = lang
     save_preferences(config)
-    print(f"  Language saved.\n")
     return lang
 
 
@@ -791,7 +827,7 @@ def create_shield_icon(color: QColor = QColor(66, 133, 244)) -> QIcon:
 
 LANG_GUI = {
     "en": {
-        "title": "Deltarune Key Remapper v1.0.5",
+        "title": f"Deltarune Key Remapper v{CURRENT_VERSION}",
         "profile": "Profile:",
         "create": "Create",
         "delete": "Delete",
@@ -837,7 +873,7 @@ LANG_GUI = {
         "kept": "{target} kept as {key}",
     },
     "ru": {
-        "title": "Ремап клавиш для Deltarune v1.0.5",
+        "title": f"Ремап клавиш для Deltarune v{CURRENT_VERSION}",
         "profile": "Профиль:",
         "create": "Создать",
         "delete": "Удалить",
@@ -901,6 +937,7 @@ class MainWindow(QMainWindow):
         self.setFixedSize(480, 620 if update_status in ("alnotsup", "notreleased", "notsup") else 560)
         self._apply_style()
         self._build_ui()
+        self._refresh_profile_list()
         self._show_update_banner()
         self._load_profile()
         self._install_hooks()
@@ -1387,7 +1424,7 @@ class MainWindow(QMainWindow):
 def main():
     # Check for PyQt6
     if not HAS_PYQT:
-        print("PyQt6 is required for v1.0.5.")
+        print(f"PyQt6 is required for v{CURRENT_VERSION}.")
         print("Install with: pip install PyQt6")
         sys.exit(1)
 
@@ -1396,22 +1433,7 @@ def main():
     # Load config
     config = load_preferences()
 
-    # Language selection (console, first run)
-    lang = select_language(config)
-
-    # Set logging
-    set_logging(config.get("logs_enabled", True), config.get("log_level", "info"))
-    log(f"Deltarune Key Remapper v{CURRENT_VERSION}")
-
-    # Check for updates
-    update_status, update_msg = check_for_updates()
-    if update_msg:
-        log(update_msg, "warn" if update_status in ("notsup", "alnotsup") else "info")
-
-    # Migrate to profiles format
-    profiles = migrate_to_profiles(config)
-
-    # Start GUI
+    # Start app early for GUI language selection
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 
@@ -1425,6 +1447,21 @@ def main():
     p.setColor(QPalette.ColorRole.ButtonText, QColor(200, 200, 200))
     p.setColor(QPalette.ColorRole.Highlight, QColor(34, 85, 170))
     app.setPalette(p)
+
+    # Language selection (GUI, first run)
+    lang = select_language_gui(config)
+
+    # Set logging
+    set_logging(config.get("logs_enabled", True), config.get("log_level", "info"))
+    log(f"Deltarune Key Remapper v{CURRENT_VERSION}")
+
+    # Check for updates
+    update_status, update_msg = check_for_updates()
+    if update_msg:
+        log(update_msg, "warn" if update_status in ("notsup", "alnotsup") else "info")
+
+    # Migrate to profiles format
+    profiles = migrate_to_profiles(config)
 
     # Block if version not supported
     if update_status == "notsup":
