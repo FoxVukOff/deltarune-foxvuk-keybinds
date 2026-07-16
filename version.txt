@@ -9,3 +9,4 @@ v1.0.7:notsup
 v1.0.8:notsup
 v1.0.9:alnotsup
 v1.1.0:ok
+v1.1.1:notreleased
