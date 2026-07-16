@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 ================================================================
- Deltarune Key Remapper v1.1.1
+ Deltarune Key Remapper v1.1.2
 ================================================================
 
 GUI-only key remapper with multi-profile support and hotkeys.
@@ -70,7 +70,7 @@ else:
 PROFILES_FILE = os.path.join(SCRIPT_DIR, "profiles.json")
 PREFERENCES_FILE = os.path.join(SCRIPT_DIR, "preferences.json")
 
-CURRENT_VERSION = "1.1.1"
+CURRENT_VERSION = "1.1.2"
 UPDATE_URL = "https://raw.githubusercontent.com/FoxVukOff/deltarune-foxvuk-keybinds/refs/heads/main/version.txt"
 REPO_URL = "https://github.com/FoxVukOff/deltarune-foxvuk-keybinds"
 
@@ -108,7 +108,7 @@ DEFAULT_CONFIG = {
     "window_check": True,
     "logs_enabled": True,
     "log_level": "info",
-    "version": "1.1.1",
+    "version": "1.1.2",
 }
 
 VALID_KEYS = {
@@ -187,7 +187,7 @@ class OSDWindow(QWidget):
         return cls._instance
 
     @classmethod
-    def show(cls, text: str, duration_ms: int = 2000):
+    def display(cls, text: str, duration_ms: int = 2000):
         cls.get_instance().show_message(text, duration_ms)
 
 
@@ -721,13 +721,13 @@ class RemapState:
         self.enabled = not self.enabled
         state_text = "ON" if self.enabled else "OFF"
         log(f"Remap {state_text}")
-        OSDWindow.show(f"Remap: {state_text}")
+        OSDWindow.display(f"Remap: {state_text}")
         if not self.enabled:
             self.release_all()
 
     def request_quit(self):
         log("Kill switch pressed")
-        OSDWindow.show("Kill switch pressed")
+        OSDWindow.display("Kill switch pressed")
         # Small delay so OSD is visible before quit
         QApplication.processEvents()
         time.sleep(0.5)
@@ -1302,7 +1302,7 @@ class MainWindow(QMainWindow):
             self._reinstall_hooks()
             save_preferences(self.config)
             save_profiles(self.profiles)
-            OSDWindow.show(f"Profile: {target_name}")
+            OSDWindow.display(f"Profile: {target_name}")
             log(f"Switched to profile: {target_name} (hotkey Ctrl+Alt+P+{digit})")
 
     def _start_rebind(self, target: str, lbl: QLabel):

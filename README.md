@@ -5,7 +5,7 @@
 <h1 align="center">Deltarune Key Remapper</h1>
 
 <p align="center">
-  <strong>Latest Version: v1.1.1</strong>
+  <strong>Latest Version: v1.1.2</strong>
 </p>
 
 <p align="center">
