@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 ================================================================
- Deltarune Key Remapper v1.1.0
+ Deltarune Key Remapper v1.1.1
 ================================================================
 
 GUI-only key remapper with multi-profile support and hotkeys.
@@ -13,6 +13,7 @@ Target keys (what the game receives):
     C                         —  phone / call menu
 
 Source keys (what you press) — fully customizable per profile.
+Set to null to disable remapping for that key.
 
 Hotkeys (global):
     Ctrl+Alt+V          — toggle remap on/off
@@ -69,7 +70,7 @@ else:
 PROFILES_FILE = os.path.join(SCRIPT_DIR, "profiles.json")
 PREFERENCES_FILE = os.path.join(SCRIPT_DIR, "preferences.json")
 
-CURRENT_VERSION = "1.1.0"
+CURRENT_VERSION = "1.1.1"
 UPDATE_URL = "https://raw.githubusercontent.com/FoxVukOff/deltarune-foxvuk-keybinds/refs/heads/main/version.txt"
 REPO_URL = "https://github.com/FoxVukOff/deltarune-foxvuk-keybinds"
 
@@ -107,7 +108,7 @@ DEFAULT_CONFIG = {
     "window_check": True,
     "logs_enabled": True,
     "log_level": "info",
-    "version": "1.1.0",
+    "version": "1.1.1",
 }
 
 VALID_KEYS = {
@@ -329,7 +330,7 @@ def load_profiles() -> dict:
                     log(f"Profile '{name}' corrupted, removing", "warn")
                     del data["profiles"][name]
                     continue
-                # Ensure all targets exist
+                # Ensure all targets exist (null is allowed = disabled)
                 for t in TARGET_ORDER:
                     if t not in profile["targets"]:
                         profile["targets"][t] = DEFAULT_PROFILE_TARGETS.get(t, "unknown")
@@ -933,6 +934,11 @@ class MainWindow(QMainWindow):
         self.update_status = update_status
         self.update_msg = update_msg
 
+        # Set window icon
+        icon_path = os.path.join(SCRIPT_DIR, "icons", "deltamap_raw.ico")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+
         self.setWindowTitle(self.t["title"])
         self.setFixedSize(480, 620 if update_status in ("alnotsup", "notreleased", "notsup") else 560)
         self._apply_style()
@@ -1136,6 +1142,13 @@ class MainWindow(QMainWindow):
 
         layout.addLayout(btn_row)
 
+        # Credits
+        credits = QLabel('Developed by <a href="https://github.com/FoxVukOff" style="color:#666;">FoxVuk</a>')
+        credits.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        credits.setOpenExternalLinks(True)
+        credits.setStyleSheet("font-size: 10px; color: #666; padding: 4px;")
+        layout.addWidget(credits)
+
     def _show_update_banner(self):
         """Show update banner based on status."""
         if self.update_status == "ok" or not self.update_msg:
@@ -1224,15 +1237,20 @@ class MainWindow(QMainWindow):
         targets = self.profiles["profiles"][name]["targets"]
 
         for target, lbl_source, btn in self.binding_rows:
-            src = targets.get(target, "?")
-            lbl_source.setText(src)
+            src = targets.get(target)
+            if src is None:
+                lbl_source.setText("(disabled)")
+                lbl_source.setStyleSheet("font-size: 13px; font-weight: bold; color: #888; min-width: 80px;")
+            else:
+                lbl_source.setText(src)
+                if name == "Default":
+                    lbl_source.setStyleSheet("font-size: 14px; font-weight: bold; color: #4285f4; min-width: 80px;")
+                else:
+                    lbl_source.setStyleSheet("font-size: 14px; font-weight: bold; color: #81c784; min-width: 80px;")
 
             if name == "Default":
-                # Default profile: blue text, shield icon
-                lbl_source.setStyleSheet("font-size: 14px; font-weight: bold; color: #4285f4; min-width: 80px;")
                 btn.setEnabled(False)
             else:
-                lbl_source.setStyleSheet("font-size: 14px; font-weight: bold; color: #81c784; min-width: 80px;")
                 btn.setEnabled(True)
 
         # Update profile name styling
@@ -1293,7 +1311,7 @@ class MainWindow(QMainWindow):
         self.rebinding = True
 
         name = self.profiles["active"]
-        current = self.profiles["profiles"][name]["targets"].get(target, "?")
+        current = self.profiles["profiles"][name]["targets"].get(target)
 
         lbl.setText("...")
         lbl.repaint()
@@ -1312,12 +1330,21 @@ class MainWindow(QMainWindow):
             if key in VALID_KEYS:
                 self.profiles["profiles"][name]["targets"][target] = key
                 lbl.setText(key)
+                lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: #81c784; min-width: 80px;")
                 log(f"{target} <- {key}")
             else:
-                lbl.setText(current)
+                if current is None:
+                    lbl.setText("(disabled)")
+                    lbl.setStyleSheet("font-size: 13px; font-weight: bold; color: #888; min-width: 80px;")
+                else:
+                    lbl.setText(current)
                 log(f"Invalid key: {key}", "warn")
         else:
-            lbl.setText(current)
+            # ESC pressed — disable this key
+            self.profiles["profiles"][name]["targets"][target] = None
+            lbl.setText("(disabled)")
+            lbl.setStyleSheet("font-size: 13px; font-weight: bold; color: #888; min-width: 80px;")
+            log(f"{target} disabled")
 
         self.rebinding = False
 
