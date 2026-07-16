@@ -1,14 +1,14 @@
 # Deltarune Key Remapper (Latest Version: v1.1.0)
 
 🌐 **Language / Язык:**
-* [🇬🇧 English Version](#-english-version)
-* [🇷🇺 Русская версия](#-русская-версия)
+* [English Version](#english-version)
+* [Русская версия](#русская-версия)
 
 ---
 
-## 🇬🇧 English Version
+## English Version
 
-Custom Deltarune keybind configuration script by FoxVuk. GUI-only key remapper with multi-profile support.
+Custom Deltarune keybind configuration script by FoxVuk. GUI-only key remapper with multi-profile support, hotkeys, and OSD overlay.
 
 ### How It Works
 
@@ -20,13 +20,17 @@ The game receives fixed target keys: **arrows, Z, X, C**. You choose which physi
 * **Default Profile**: Protected, auto-generated, cannot be deleted or renamed. Always reverts to default bindings.
 * **Full Customization**: Rebind any source key to any target (Up/Down/Left/Right/Z/X/C) — in the GUI.
 * **GUI Only**: PyQt6 window with profile selector, rebind buttons, settings.
+* **Profile Hotkeys**: Ctrl+Alt+P+0 (Default) through Ctrl+Alt+P+9 (custom profiles).
+* **Profile Limit**: 9 quick profiles with hotkeys (1-9), Default on 0. More can be created without hotkey.
+* **OSD Overlay**: Borderless popup shows status for 2 seconds (toggle, kill switch, profile switch).
 * **Full Diagonal Support**: Simultaneous key presses work perfectly.
 * **Window Detection**: Warns when Deltarune window is not found or not focused.
 * **Global Hotkeys**: `Ctrl+Alt+V` (toggle), `Ctrl+Alt+Backspace` (quit).
-* **Auto Update Check**: Checks GitHub on startup. Three modes: `imp` (mandatory), `notimp` (optional), `ignore`.
-* **Bilingual**: English and Russian.
+* **Auto Update Check**: Checks GitHub on startup. `sup` (ok), `notsup` (blocks), `alnotsup` (warning), `notreleased` (info).
+* **Version Blocking**: Unsupported versions block until user updates.
+* **Bilingual**: English and Russian, selectable in GUI on first run.
 * **Configurable Logs**: Enable/disable logs, set log level (debug/info/warn/error).
-* **Auto Migration**: Settings from v1.0.0-v1.0.4 are automatically converted.
+* **Auto Migration**: Settings from all previous versions are automatically converted.
 * **Profile Fallback**: Corrupted profiles are automatically removed.
 
 ### Default Bindings
@@ -40,6 +44,16 @@ The game receives fixed target keys: **arrows, Z, X, C**. You choose which physi
 | Confirm| Z         | Q         |
 | Cancel | X         | E         |
 | Phone  | C         | R         |
+
+### Profile Hotkeys
+
+| Hotkey | Profile |
+|--------|---------|
+| Ctrl+Alt+P+0 | Default |
+| Ctrl+Alt+P+1 | Custom 1 |
+| Ctrl+Alt+P+2 | Custom 2 |
+| ... | ... |
+| Ctrl+Alt+P+9 | Custom 9 |
 
 ### Files
 
@@ -68,9 +82,9 @@ The game receives fixed target keys: **arrows, Z, X, C**. You choose which physi
 
 ---
 
-## 🇷🇺 Русская версия
+## Русская версия
 
-Скрипт для изменения раскладки управления в Deltarune от FoxVuk. GUI-ремаппер с мульти-профилями.
+Скрипт для изменения раскладки управления в Deltarune от FoxVuk. GUI-ремаппер с мульти-профилями, горячими клавишами и OSD-оверлеем.
 
 ### Как это работает
 
@@ -82,14 +96,28 @@ The game receives fixed target keys: **arrows, Z, X, C**. You choose which physi
 * **Профиль Default**: Защищён, генерируется автоматически, нельзя удалить или переименовать. Всегда возвращается к дефолтным привязкам.
 * **Полная кастомизация**: Переназначьте любую клавишу — прямо в GUI.
 * **Только GUI**: Окно PyQt6 с выбором профиля, кнопками rebind, настройками.
+* **Горячие клавиши профилей**: Ctrl+Alt+P+0 (Default) через Ctrl+Alt+P+9 (кастомные).
+* **Лимит профилей**: 9 быстрых профилей с горячими клавишами (1-9), Default на 0. Больше можно создавать без горячей клавиши.
+* **OSD-оверлей**: Безрамочное всплывающее окно показывает статус на 2 секунды (переключение, киллсвич, смена профиля).
 * **Поддержка диагоналей**: Одновременные нажатия работают идеально.
 * **Проверка окна**: Предупреждает, если окно Deltarune не найдено.
 * **Горячие клавиши**: `Ctrl+Alt+V` (переключение), `Ctrl+Alt+Backspace` (выход).
-* **Авто-проверка обновлений**: Проверяет GitHub при запуске. Три режима: `imp` (обязательно), `notimp` (опционально), `ignore`.
-* **Двуязычный интерфейс**: Английский и русский.
+* **Авто-проверка обновлений**: Проверяет GitHub при запуске. `sup` (ок), `notsup` (блокирует), `alnotsup` (предупреждение), `notreleased` (инфо).
+* **Блокировка версии**: Неподдерживаемые версии блокируются до обновления.
+* **Двуязычный интерфейс**: Английский и русский, выбор в GUI при первом запуске.
 * **Настраиваемые логи**: Включение/выключение, уровень (debug/info/warn/error).
-* **Авто-миграция**: Настройки с v1.0.0-v1.0.4 конвертируются.
+* **Авто-миграция**: Настройки со всех прошлых версий конвертируются автоматически.
 * **Fallback профилей**: Повреждённые профили удаляются автоматически.
+
+### Горячие клавиши профилей
+
+| Горячая клавиша | Профиль |
+|-----------------|---------|
+| Ctrl+Alt+P+0 | Default |
+| Ctrl+Alt+P+1 | Кастомный 1 |
+| Ctrl+Alt+P+2 | Кастомный 2 |
+| ... | ... |
+| Ctrl+Alt+P+9 | Кастомный 9 |
 
 ### Файлы
 
@@ -114,3 +142,4 @@ The game receives fixed target keys: **arrows, Z, X, C**. You choose which physi
 
 * Перехватывает ТОЛЬКО клавиши из вашего конфига. Ничего больше не блокируется.
 * `Ctrl+Alt+Delete` всегда работает (на уровне ОС).
+* `Ctrl+Alt+Backspace` — мгновенный выход.
